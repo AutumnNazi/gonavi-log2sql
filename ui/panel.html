@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyBatis 日志转 SQL</title>
+<style>
+  /* 配色与字体取自 GoNavi v2 主题（frontend/src/styles/v2Theme/v2-theme-01-gonavi-v2.css）
+     的 --gn-* 变量值：宿主无桥接通道，沙箱内无法直接引用宿主变量，这里静态对齐
+     浅/深两套值；data-theme=auto 时跟随系统 prefers-color-scheme。 */
+  :root, :root[data-theme="light"] {
+    --bg: #fafaf8;            /* --gn-bg-panel-2 */
+    --panel: #ffffff;         /* --gn-bg-panel */
+    --input: #ffffff;         /* --gn-bg-input */
+    --code: #f6f6f4;          /* --gn-bg-app */
+    --text: #0c1322;          /* --gn-fg-1 */
+    --muted: #6b7280;         /* --gn-fg-4 */
+    --border: rgba(15, 23, 42, 0.12);  /* --gn-br-2 */
+    --border-1: rgba(15, 23, 42, 0.08);/* --gn-br-1 */
+    --accent: #15803d;        /* --gn-accent */
+    --accent-soft: rgba(21, 128, 61, 0.12);
+    --ok: #15803d;            /* --gn-status-connected */
+    --warn: #d97706;          /* --gn-warn */
+    --warn-bg: rgba(245, 158, 11, 0.14);
+    --chip: rgba(15, 23, 42, 0.06);
+    --hover: rgba(15, 23, 42, 0.045);  /* --gn-bg-hover */
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1f27;            /* --gn-bg-panel-2 */
+    --panel: #161a21;         /* --gn-bg-panel */
+    --input: #0f1217;         /* --gn-bg-input */
+    --code: #0f1217;
+    --text: #ffffff;          /* --gn-fg-1 */
+    --muted: #d9d9d9;         /* --gn-fg-4 */
+    --border: rgba(255, 255, 255, 0.10);
+    --border-1: rgba(255, 255, 255, 0.06);
+    --accent: #22c55e;        /* --gn-accent */
+    --accent-soft: rgba(34, 197, 94, 0.16);
+    --ok: #4ade80;            /* --gn-status-connected */
+    --warn: #f59e0b;          /* --gn-warn */
+    --warn-bg: rgba(245, 158, 11, 0.16);
+    --chip: rgba(255, 255, 255, 0.08);
+    --hover: rgba(255, 255, 255, 0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root[data-theme="auto"] {
+      --bg: #1b1f27; --panel: #161a21; --input: #0f1217; --code: #0f1217;
+      --text: #ffffff; --muted: #d9d9d9;
+      --border: rgba(255, 255, 255, 0.10); --border-1: rgba(255, 255, 255, 0.06);
+      --accent: #22c55e; --accent-soft: rgba(34, 197, 94, 0.16);
+      --ok: #4ade80; --warn: #f59e0b; --warn-bg: rgba(245, 158, 11, 0.16);
+      --chip: rgba(255, 255, 255, 0.08); --hover: rgba(255, 255, 255, 0.05);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 13px/1.6 "Inter", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei",
+      -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column; padding: 10px; gap: 10px;
+  }
+  code, pre, textarea { font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; }
+  header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  header h1 { font-size: 14px; margin: 0; }
+  header .stats { color: var(--muted); font-size: 12px; }
+  header .grow { flex: 1; }
+  .toolbar { display: flex; align-items: center; gap: 6px; }
+  select.lang {
+    border: 1px solid var(--border-1); border-radius: 5px; background: var(--panel);
+    color: var(--text); font-size: 12px; padding: 1px 4px;
+  }
+  .theme-group { display: inline-flex; border: 1px solid var(--border-1); border-radius: 5px; overflow: hidden; }
+  .theme-group button {
+    border: none; background: transparent; color: var(--muted);
+    font-size: 12px; padding: 2px 8px; cursor: pointer;
+  }
+  .theme-group button + button { border-left: 1px solid var(--border-1); }
+  .theme-group button[aria-pressed="true"] { background: var(--hover); color: var(--accent); }
+  textarea {
+    width: 100%; min-height: 88px; max-height: min(28vh, 160px); padding: 8px;
+    font-size: 12px; line-height: 1.5; resize: none; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--input); color: var(--text); outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 12px; margin: -4px 0 0 2px; }
+  /* 结果区保证至少能露出一张卡片：面板宿主 iframe 高度约 480px，
+     textarea 超过上限后自身滚动，不挤压结果区 */
+  #results { flex: 1 1 0; min-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  /* 卡片必须按内容完整显示、超出部分由结果区滚动带回：默认 flex-shrink:1
+     会在空间不足时压扁卡片（配合 overflow:hidden 就变成截断） */
+  #results > .card { flex: 0 0 auto; }
+  .card { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); overflow: hidden; }
+  .card-head {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 6px 10px; border-bottom: 1px solid var(--border-1);
+    font-size: 12px; color: var(--muted);
+  }
+  .card-head .mapper { color: var(--text); font-weight: 600; }
+  .chip { background: var(--chip); border-radius: 10px; padding: 0 8px; font-size: 11px; white-space: nowrap; }
+  .chip.ok { color: var(--ok); }
+  .copy-btn {
+    border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+    border-radius: 5px; padding: 2px 10px; font-size: 12px; cursor: pointer;
+  }
+  .copy-btn:hover { filter: brightness(1.05); }
+  .copy-btn:disabled { opacity: 0.75; cursor: default; }
+  pre.sql {
+    margin: 0; padding: 10px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+    font-size: 12px; line-height: 1.6; background: var(--code); color: var(--text);
+  }
+  .warnings { padding: 0; margin: 0; list-style: none; }
+  .warnings li {
+    padding: 5px 10px; font-size: 12px;
+    background: var(--warn-bg); color: var(--warn);
+    border-top: 1px solid var(--warn);
+  }
+  .global-warn { color: var(--warn); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="panel-title"></h1>
+  <span class="stats" id="stats"></span>
+  <span class="grow"></span>
+  <span class="toolbar">
+    <select class="lang" id="dialect-select" aria-label="SQL dialect"></select>
+    <select class="lang" id="lang-select" aria-label="language"></select>
+    <span class="theme-group" id="theme-group" role="group"></span>
+  </span>
+</header>
+<textarea id="log-input" spellcheck="false"></textarea>
+<div class="hint" id="hint"></div>
+<div id="results"></div>
+<!-- __ENGINE_JS__ -->
+<!-- __APP_JS__ -->
+</body>
+</html>

@@ -1,0 +1,311 @@
+{
+  "$comment": "log2sql 共享测试向量：Go（internal/convert_test.go）与 JS（ui/engine.test.mjs）跑同一份数据，保证双端行为一致。expected.statements[].* 字段缺省表示不断言；warningCount 断言 warnings 数组长度；total 用 -1 表示未知（仅当显式断言时检查）。",
+  "cases": [
+    {
+      "name": "bare-preparing-parameters",
+      "input": "Preparing: SELECT id, name FROM users WHERE id = ?\nParameters: 1(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT id, name FROM users WHERE id = 1", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "full-log-line-with-total",
+      "input": "2024-01-15 10:30:45.123 [http-nio-8080-exec-1] DEBUG c.x.m.UserMapper.selectById - ==>  Preparing: SELECT * FROM users WHERE name = ? AND age = ?\n2024-01-15 10:30:45.124 [http-nio-8080-exec-1] DEBUG c.x.m.UserMapper.selectById - ==> Parameters: Bob(String), 25(Integer)\n2024-01-15 10:30:45.125 [http-nio-8080-exec-1] DEBUG c.x.m.UserMapper.selectById - <==      Total: 1",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM users WHERE name = 'Bob' AND age = 25", "paramCount": 2, "placeholderCount": 2, "mapper": "c.x.m.UserMapper.selectById", "time": "2024-01-15 10:30:45.123", "total": 1 }
+        ]
+      }
+    },
+    {
+      "name": "fully-qualified-classnames",
+      "input": "==>  Preparing: UPDATE users SET name = ?, age = ? WHERE id = ?\n==> Parameters: Alice(java.lang.String), 30(java.lang.Integer), 7(java.lang.Long)",
+      "expected": {
+        "statements": [
+          { "sql": "UPDATE users SET name = 'Alice', age = 30 WHERE id = 7", "paramCount": 3, "placeholderCount": 3 }
+        ]
+      }
+    },
+    {
+      "name": "null-parameter",
+      "input": "==>  Preparing: UPDATE users SET name = ?, age = ? WHERE id = ?\n==> Parameters: null, 25(Integer), 7(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "UPDATE users SET name = NULL, age = 25 WHERE id = 7", "paramCount": 3, "placeholderCount": 3 }
+        ]
+      }
+    },
+    {
+      "name": "boolean-parameter",
+      "input": "Preparing: SELECT * FROM users WHERE active = ?\nParameters: true(Boolean)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM users WHERE active = true", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "decimal-parameter",
+      "input": "Preparing: SELECT * FROM goods WHERE price > ?\nParameters: 99.99(BigDecimal)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM goods WHERE price > 99.99", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "value-contains-comma",
+      "input": "Preparing: INSERT INTO tags (name) VALUES (?)\nParameters: a,b,c(String)",
+      "expected": {
+        "statements": [
+          { "sql": "INSERT INTO tags (name) VALUES ('a,b,c')", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "value-contains-quote",
+      "input": "Preparing: SELECT * FROM users WHERE name = ?\nParameters: O'Brien(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM users WHERE name = 'O''Brien'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "value-contains-paren",
+      "input": "Preparing: SELECT * FROM users WHERE note = ?\nParameters: foo(bar(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM users WHERE note = 'foo(bar'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "empty-string-parameter",
+      "input": "Preparing: SELECT * FROM users WHERE a = ? AND b = ?\nParameters: (String), x(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM users WHERE a = '' AND b = 'x'", "paramCount": 2, "placeholderCount": 2 }
+        ]
+      }
+    },
+    {
+      "name": "question-mark-inside-literal",
+      "input": "Preparing: SELECT * FROM t WHERE note = 'a?b' AND code = ?\nParameters: X(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE note = 'a?b' AND code = 'X'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "question-mark-inside-block-comment",
+      "input": "Preparing: SELECT 1 /* use ? here */ FROM t WHERE id = ?\nParameters: 1(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT 1 /* use ? here */ FROM t WHERE id = 1", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "question-mark-inside-line-comment",
+      "input": "Preparing: SELECT 1 -- flag ?\n, col FROM t WHERE id = ?\nParameters: 1(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT 1 -- flag ?\n, col FROM t WHERE id = 1", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "backtick-identifier",
+      "input": "Preparing: SELECT `name` FROM `user` WHERE id = ?\nParameters: 5(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT `name` FROM `user` WHERE id = 5", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "double-quote-identifier",
+      "input": "Preparing: SELECT \"name\" FROM \"user\" WHERE id = ?\nParameters: 5(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT \"name\" FROM \"user\" WHERE id = 5", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "in-clause-three-placeholders",
+      "input": "==>  Preparing: SELECT * FROM t WHERE id IN (?,?,?) AND code = ?\n==> Parameters: 1(Long), 2(Long), null, X(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE id IN (1,2,NULL) AND code = 'X'", "paramCount": 4, "placeholderCount": 4 }
+        ]
+      }
+    },
+    {
+      "name": "timestamp-parameter",
+      "input": "Preparing: SELECT * FROM events WHERE created_at > ?\nParameters: 2024-01-15 10:30:45.0(Timestamp)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM events WHERE created_at > '2024-01-15 10:30:45.0'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "localdatetime-parameter",
+      "input": "Preparing: INSERT INTO events (name, at) VALUES (?, ?)\nParameters: launch(java.lang.String), 2024-01-15T10:30:45(java.time.LocalDateTime)",
+      "expected": {
+        "statements": [
+          { "sql": "INSERT INTO events (name, at) VALUES ('launch', '2024-01-15T10:30:45')", "paramCount": 2, "placeholderCount": 2 }
+        ]
+      }
+    },
+    {
+      "name": "multiple-statements",
+      "input": "==>  Preparing: SELECT * FROM users WHERE id = ?\n==> Parameters: 1(Long)\n==>  Preparing: SELECT * FROM orders WHERE user_id = ?\n==> Parameters: 2(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM users WHERE id = 1", "paramCount": 1, "placeholderCount": 1 },
+          { "sql": "SELECT * FROM orders WHERE user_id = 2", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "more-params-than-placeholders",
+      "input": "Preparing: SELECT * FROM t WHERE a = ? AND b = ?\nParameters: 1(Long), 2(Long), 3(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = 1 AND b = 2", "paramCount": 3, "placeholderCount": 2, "warningCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "fewer-params-than-placeholders",
+      "input": "Preparing: SELECT * FROM t WHERE a = ? AND b = ?\nParameters: 1(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = 1 AND b = ?", "paramCount": 1, "placeholderCount": 2, "warningCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "no-parameters-line",
+      "input": "Preparing: SELECT 1",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT 1", "paramCount": 0, "placeholderCount": 0, "warningCount": 0 }
+        ]
+      }
+    },
+    {
+      "name": "multiline-sql-continuation",
+      "input": "==>  Preparing: SELECT id, name\n    FROM users\n    WHERE id = ?\n==> Parameters: 5(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT id, name\n    FROM users\n    WHERE id = 5", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "traceid-extraction",
+      "input": "2024-01-15 10:30:45.123 TRACEID: 7f3a2b [main] DEBUG m.X.find - ==>  Preparing: SELECT * FROM t WHERE id = ?\n2024-01-15 10:30:45.124 TRACEID: 7f3a2b [main] DEBUG m.X.find - ==> Parameters: 9(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE id = 9", "paramCount": 1, "placeholderCount": 1, "mapper": "m.X.find", "traceId": "7f3a2b" }
+        ]
+      }
+    },
+    {
+      "name": "total-zero",
+      "input": "==>  Preparing: DELETE FROM t WHERE id = ?\n==> Parameters: 1(Long)\n<== Total: 0",
+      "expected": {
+        "statements": [
+          { "sql": "DELETE FROM t WHERE id = 1", "paramCount": 1, "placeholderCount": 1, "total": 0 }
+        ]
+      }
+    },
+    {
+      "name": "orphan-parameters-without-preparing",
+      "input": "Parameters: 1(Long), Alice(String)",
+      "expected": {
+        "statements": [
+          { "sql": "", "paramCount": 2, "placeholderCount": 0, "warningCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "noise-input",
+      "input": "hello world\nfoo bar",
+      "expected": {
+        "statements": [],
+        "warningCount": 1
+      }
+    },
+    {
+      "name": "empty-input",
+      "input": "",
+      "expected": {
+        "statements": [],
+        "warningCount": 1
+      }
+    },
+    {
+      "name": "interleaved-noise-line-not-joined",
+      "input": "==>  Preparing: SELECT * FROM t WHERE id = ?\n2026-01-15 10:31:00.000 DEBUG other.Logger - something happened\n==> Parameters: 5(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE id = 5", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "value-contains-comma-space",
+      "input": "Preparing: SELECT * FROM t WHERE note = ?\nParameters: a, b(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE note = 'a, b'", "paramCount": 1, "placeholderCount": 1, "warningCount": 0 }
+        ]
+      }
+    },
+    {
+      "name": "value-contains-comma-space-multiple",
+      "input": "Preparing: SELECT * FROM t WHERE a = ? AND b = ?\nParameters: x(String), p, q(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = 'x' AND b = 'p, q'", "paramCount": 2, "placeholderCount": 2, "warningCount": 0 }
+        ]
+      }
+    },
+    {
+      "name": "time-not-extracted-from-sql-literal",
+      "input": "==>  Preparing: SELECT * FROM events WHERE created_at > '2024-01-15 10:30:45'\n==> Parameters: 1(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM events WHERE created_at > '2024-01-15 10:30:45'", "paramCount": 1, "placeholderCount": 0, "warningCount": 1, "time": "" }
+        ]
+      }
+    },
+    {
+      "name": "mysql-backslash-escape-in-literal",
+      "dialect": "mysql",
+      "input": "Preparing: SELECT * FROM t WHERE note = 'a\\'b ?' AND code = ?\nParameters: X(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE note = 'a\\'b ?' AND code = 'X'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "generic-treats-backslash-quote-as-close",
+      "input": "Preparing: SELECT * FROM t WHERE note = 'a\\'b ?' AND code = ?\nParameters: X(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE note = 'a\\'b 'X'' AND code = ?", "paramCount": 1, "placeholderCount": 1, "warningCount": 0 }
+        ]
+      }
+    }
+  ]
+}
