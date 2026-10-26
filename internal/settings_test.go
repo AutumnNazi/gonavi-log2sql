@@ -3,6 +3,7 @@ package internal
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -57,5 +58,45 @@ func TestSettingsCorruptedFile(t *testing.T) {
 	}
 	if got != DefaultSettings() {
 		t.Fatalf("损坏文件应回退默认值：%+v", got)
+	}
+}
+
+func TestSettingsConcurrentSaves(t *testing.T) {
+	// 并发保存不能互相踩踏：全部成功，最终文件是某次完整写入
+	dir := t.TempDir()
+	const writers = 32
+	var wg sync.WaitGroup
+	errs := make(chan error, writers)
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- SaveSettings(dir, Settings{Language: "en-US", Theme: "dark", Dialect: "mysql"})
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("并发保存失败: %v", err)
+		}
+	}
+	got, err := LoadSettings(dir)
+	if err != nil {
+		t.Fatalf("回读失败: %v", err)
+	}
+	want := Settings{Language: "en-US", Theme: "dark", Dialect: "mysql"}
+	if got != want {
+		t.Fatalf("并发写入后内容不完整：%+v", got)
+	}
+	// 临时文件必须清理干净
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.Name() != "settings.json" {
+			t.Fatalf("残留临时文件: %s", entry.Name())
+		}
 	}
 }

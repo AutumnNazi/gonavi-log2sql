@@ -16,7 +16,7 @@ const (
 	stateBlockComment
 )
 
-// Dialect 决定字符串字面量的转义规则：generic 只认 SQL 标准的 '' 双写，
+// Dialect 决定字符串字面量的转义规则：generic 只认 SQL 标准的 ” 双写，
 // mysql 额外把反斜杠当转义符（\' 不闭串）。
 type Dialect int
 
@@ -79,7 +79,7 @@ func FillSQL(sql string, params []Param, dialect Dialect) (string, []string, int
 			case c == '?':
 				placeholders++
 				if used < len(params) {
-					b.WriteString(RenderValue(params[used]))
+					b.WriteString(RenderValue(params[used], dialect))
 					used++
 				} else {
 					b.WriteByte(c)
@@ -140,7 +140,7 @@ func FillSQL(sql string, params []Param, dialect Dialect) (string, []string, int
 }
 
 // countPlaceholders 预扫描占位符数，与 FillSQL 主扫描同规则
-//（字面量/标识符/注释内的 ? 不计）。
+// （字面量/标识符/注释内的 ? 不计）。
 func countPlaceholders(sql string, dialect Dialect) int {
 	count := 0
 	state := stateNormal
@@ -199,8 +199,8 @@ func countPlaceholders(sql string, dialect Dialect) int {
 }
 
 // coalesceParams 修复「参数多于占位符」中可自动恢复的一类：值内含
-// 「逗号+空格」被解析误切成裸文本段（MyBatis 正常参数都带类型标注，
-// null 也不会走到这里）。从左到右把裸文本段与其右邻合并（值 = 左 + ", " + 右，
+// 「逗号+空白」被解析误切成裸文本段（MyBatis 正常参数都带类型标注，
+// null 也不会走到这里）。从左到右把裸文本段与其右邻合并（值 = 左 + 原始分隔符 + 右，
 // 类型取右邻），直到数量等于占位符数；带类型段与 null 段不参与合并——
 // 真实的参数错位保持原样，由告警提示人工核对。
 func coalesceParams(params []Param, placeholders int) []Param {
@@ -208,11 +208,17 @@ func coalesceParams(params []Param, placeholders int) []Param {
 		merged := false
 		for i := 0; i+1 < len(params); i++ {
 			if params[i].Type == "" && !params[i].Null && !params[i+1].Null {
+				// 按右段记录的原始分隔符还原（可能是 ",\t"），不把 tab 换成空格
+				sep := params[i+1].sep
+				if sep == "" {
+					sep = ", "
+				}
 				joined := make([]Param, 0, len(params)-1)
 				joined = append(joined, params[:i]...)
 				joined = append(joined, Param{
-					Value: params[i].Value + ", " + params[i+1].Value,
+					Value: params[i].Value + sep + params[i+1].Value,
 					Type:  params[i+1].Type,
+					sep:   params[i].sep,
 				})
 				joined = append(joined, params[i+2:]...)
 				params = joined

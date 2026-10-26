@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // Settings 是面板/窗口的界面偏好，持久化在宿主注入的插件数据目录
@@ -67,7 +68,12 @@ func LoadSettings(dataRoot string) (Settings, error) {
 	return NormalizeSettings(s), nil
 }
 
-// SaveSettings 原子写入设置：先写同目录临时文件再改名，避免半截文件。
+// settingsWriteMu 串行化落盘：getSettings/saveSettings 可能被独立窗口、Agent
+// 工具与 CLI 并发调用，固定临时文件会在并发写时互相覆盖或让 rename 失败。
+var settingsWriteMu sync.Mutex
+
+// SaveSettings 原子写入设置：唯一临时文件 + fsync + 改名，写入过程串行化，
+// 避免并发 save 互相踩踏；失败时清理临时文件。
 func SaveSettings(dataRoot string, s Settings) error {
 	s = NormalizeSettings(s)
 	data, err := json.MarshalIndent(s, "", "  ")
@@ -78,9 +84,30 @@ func SaveSettings(dataRoot string, s Settings) error {
 	if err := os.MkdirAll(dataRoot, 0o700); err != nil {
 		return err
 	}
-	tmp := filepath.Join(dataRoot, settingsFileName+".tmp")
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	settingsWriteMu.Lock()
+	defer settingsWriteMu.Unlock()
+	tmp, err := os.CreateTemp(dataRoot, settingsFileName+".*.tmp")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, filepath.Join(dataRoot, settingsFileName))
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	if err := os.Rename(tmpName, filepath.Join(dataRoot, settingsFileName)); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	return nil
 }

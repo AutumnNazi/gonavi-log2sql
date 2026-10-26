@@ -306,6 +306,490 @@
           { "sql": "SELECT * FROM t WHERE note = 'a\\'b 'X'' AND code = ?", "paramCount": 1, "placeholderCount": 1, "warningCount": 0 }
         ]
       }
+    },
+    {
+      "name": "mysql-escapes-backslash-in-string-value",
+      "dialect": "mysql",
+      "input": "Preparing: SELECT * FROM t WHERE p = ? AND q = ?\nParameters: a\\(String), injection(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE p = 'a\\\\' AND q = 'injection'", "paramCount": 2, "placeholderCount": 2, "warningCount": 0 }
+        ]
+      }
+    },
+    {
+      "name": "mysql-escapes-windows-path-backslash",
+      "dialect": "mysql",
+      "input": "Preparing: SELECT * FROM t WHERE path = ?\nParameters: C:\\temp(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE path = 'C:\\\\temp'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "interleaved-threads-pair-parameters",
+      "input": "2026-01-15 10:00:00.000 [exec-A] DEBUG m.X.a - ==>  Preparing: SELECT * FROM t WHERE id = ?\n2026-01-15 10:00:00.001 [exec-B] DEBUG m.X.b - ==>  Preparing: SELECT * FROM t WHERE name = ?\n2026-01-15 10:00:00.002 [exec-B] DEBUG m.X.b - ==> Parameters: bob(String)\n2026-01-15 10:00:00.003 [exec-A] DEBUG m.X.a - ==> Parameters: 1(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE id = 1", "paramCount": 1, "placeholderCount": 1, "warningCount": 0 },
+          { "sql": "SELECT * FROM t WHERE name = 'bob'", "paramCount": 1, "placeholderCount": 1, "warningCount": 0 }
+        ]
+      }
+    },
+    {
+      "name": "null-typed-string-kept-as-text",
+      "input": "Preparing: SELECT * FROM t WHERE a = ?\nParameters: null(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = 'null'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "trailing-nulls-parsed-separately",
+      "input": "Preparing: SELECT * FROM t WHERE a = ? AND b = ? AND c = ?\nParameters: 1(Long), null, null",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = 1 AND b = NULL AND c = NULL", "paramCount": 3, "placeholderCount": 3, "warningCount": 0 }
+        ]
+      }
+    },
+    {
+      "name": "string-value-keeps-trailing-space",
+      "input": "Preparing: SELECT * FROM t WHERE a = ?\nParameters: padded value (String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = 'padded value '", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "marker-inside-parameter-value-ignored",
+      "input": "Preparing: SELECT * FROM t WHERE a = ?\nParameters: Preparing: fake(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = 'Preparing: fake'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "duplicate-parameters-line-warns-keeps-first",
+      "input": "Preparing: SELECT * FROM t WHERE id = ?\nParameters: 1(Long)\nParameters: 2(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE id = 1", "paramCount": 1, "placeholderCount": 1, "warningCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "preparing-marker-inside-value-full-log",
+      "input": "2026-01-15 10:00:00.000 [exec-A] DEBUG m.X.a - ==>  Preparing: SELECT * FROM t WHERE a = ?\n2026-01-15 10:00:00.001 [exec-A] DEBUG m.X.a - ==> Parameters: Preparing: fake(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = 'Preparing: fake'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "first-param-leading-space-preserved",
+      "input": "Preparing: SELECT * FROM t WHERE a = ?\nParameters:  padded(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = ' padded'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "comma-tab-separator-preserved-on-merge",
+      "input": "Preparing: SELECT * FROM t WHERE a = ?\nParameters: a,\tb(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = 'a,\tb'", "paramCount": 1, "placeholderCount": 1, "warningCount": 0 }
+        ]
+      }
+    },
+    {
+      "name": "multiline-parameter-continuation",
+      "input": "Preparing: SELECT * FROM t WHERE note = ?\nParameters: line1\nline2(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE note = 'line1\nline2'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "second-total-does-not-overwrite",
+      "input": "Preparing: SELECT * FROM t WHERE id = ?\nParameters: 1(Long)\n<== Total: 1\n<== Total: 9",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE id = 1", "paramCount": 1, "placeholderCount": 1, "total": 1 }
+        ]
+      }
+    },
+    {
+      "name": "total-for-unknown-thread-ignored",
+      "input": "Preparing: SELECT * FROM t WHERE id = ?\nParameters: 1(Long)\n2026-01-15 10:00:00.000 [exec-X] DEBUG m.X.a - <== Total: 9",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE id = 1", "paramCount": 1, "placeholderCount": 1, "total": -1 }
+        ]
+      }
+    },
+    {
+      "name": "result-row-and-columns-lines-not-joined-to-parameters",
+      "input": "Preparing: SELECT * FROM t WHERE id = ?\nParameters: 1(Long)\n<==      Total: 1\n<==      Row: 1, admin, admin@example.com\n<==    Columns: id, name, email",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE id = 1", "paramCount": 1, "placeholderCount": 1, "total": 1, "warningCount": 0 }
+        ]
+      }
+    },
+    {
+      "name": "multiline-value-keeps-blank-line-and-dash-text",
+      "input": "Preparing: SELECT * FROM t WHERE note = ?\nParameters: line1\n\na - b\nline2(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE note = 'line1\n\na - b\nline2'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "arrow-marker-inside-value-not-split",
+      "input": "2026-01-15 10:00:00.000 [exec-A] DEBUG m.X.a - ==>  Preparing: SELECT * FROM t WHERE a = ?\n2026-01-15 10:00:00.001 [exec-A] DEBUG m.X.a - ==> Parameters: foo ==> Preparing: bar(String)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE a = 'foo ==> Preparing: bar'", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "nested-total-related-by-mapper",
+      "input": "2026-01-15 10:00:00.000 [exec-A] DEBUG m.A.find - ==>  Preparing: SELECT * FROM a WHERE id = ?\n2026-01-15 10:00:00.001 [exec-A] DEBUG m.B.find - ==>  Preparing: SELECT * FROM b WHERE id = ?\n2026-01-15 10:00:00.002 [exec-A] DEBUG m.B.find - ==> Parameters: 2(Long)\n2026-01-15 10:00:00.003 [exec-A] DEBUG m.A.find - ==> Parameters: 1(Long)\n2026-01-15 10:00:00.004 [exec-A] DEBUG m.A.find - <==      Total: 1\n2026-01-15 10:00:00.005 [exec-A] DEBUG m.B.find - <==      Total: 2",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM a WHERE id = 1", "paramCount": 1, "placeholderCount": 1, "total": 1 },
+          { "sql": "SELECT * FROM b WHERE id = 2", "paramCount": 1, "placeholderCount": 1, "total": 2 }
+        ]
+      }
+    },
+    {
+      "name": "bare-preparing-line-with-arrow-in-sql",
+      "input": "Preparing: SELECT * FROM t WHERE tag = '==>' AND id = ?\nParameters: 1(Long)",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE tag = '==>' AND id = 1", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "blank-line-after-parameters-keeps-params-intact",
+      "input": "Preparing: SELECT * FROM t WHERE id = ?\nParameters: 1(Long)\n\n",
+      "expected": {
+        "statements": [
+          { "sql": "SELECT * FROM t WHERE id = 1", "paramCount": 1, "placeholderCount": 1 }
+        ]
+      }
+    },
+    {
+      "name": "same-mapper-cross-thread-params-and-total",
+      "input": "[A] DEBUG m.User.find - ==> Preparing: SELECT ? AS a\n[B] DEBUG m.User.find - ==> Preparing: SELECT ? AS b\n[A] DEBUG m.User.find - ==> Parameters: 11(Integer)\n[B] DEBUG m.User.find - ==> Parameters: 22(Integer)\n[A] DEBUG m.User.find - <== Total: 1\n[B] DEBUG m.User.find - <== Total: 2",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 11 AS a",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "total": 1,
+            "warningCount": 0
+          },
+          {
+            "sql": "SELECT 22 AS b",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "total": 2,
+            "warningCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate-empty-parameters-keeps-first",
+      "input": "Preparing: SELECT ?\nParameters:\nParameters: 2(Integer)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT ?",
+            "paramCount": 0,
+            "placeholderCount": 1,
+            "warningCount": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "complete-typed-params-ignore-ordinary-application-log",
+      "input": "Preparing: SELECT ?\nParameters: 1(Integer)\nINFO cache refreshed",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 1",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "incomplete-params-stop-at-explicit-logger-boundary",
+      "input": "Preparing: SELECT ?\nParameters: line1\n[A] INFO m.Cache - cache refreshed\nleaked(String)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'line1'",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "incomplete-params-total-closes-block-with-warning",
+      "input": "Preparing: SELECT ?\nParameters: line1\n<== Total: 1\nleaked(String)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'line1'",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "total": 1,
+            "warningCount": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "multiline-string-keeps-ordinary-out-arrow",
+      "input": "Preparing: SELECT ?\nParameters: line1\nfoo ==> bar(String)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'line1\nfoo ==> bar'",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "mysql-incomplete-count-at-info-boundary",
+      "dialect": "mysql",
+      "input": "Preparing: SELECT 'a\\'b ?' AS literal, ? AS x, ? AS y\nParameters: 1(Integer)\nINFO cache refreshed",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'a\\'b ?' AS literal, 1 AS x, ? AS y",
+            "paramCount": 1,
+            "placeholderCount": 2,
+            "warningCount": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "multiline-string-keeps-marker-looking-arrow-text",
+      "input": "Preparing: SELECT ?\nParameters: line1\nfoo ==> Preparing: bar(String)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'line1\nfoo ==> Preparing: bar'",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "incomplete-params-new-preparing-warns",
+      "input": "Preparing: SELECT ? AS old\nParameters: line1\nPreparing: SELECT ? AS next\nParameters: 2(Integer)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'line1' AS old",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 1
+          },
+          {
+            "sql": "SELECT 2 AS next",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "same-mapper-unknown-thread-does-not-borrow",
+      "input": "[A] DEBUG m.User.find - ==> Preparing: SELECT ? AS a\n[A] DEBUG m.User.find - ==> Parameters: 11(Integer)\n[X] DEBUG m.User.find - <== Total: 9\n[X] DEBUG m.User.find - ==> Parameters: 22(Integer)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 11 AS a",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "total": -1,
+            "warningCount": 0
+          },
+          {
+            "sql": "",
+            "paramCount": 1,
+            "placeholderCount": 0,
+            "total": -1,
+            "warningCount": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "same-thread-parent-child-total-after-params",
+      "input": "[A] DEBUG m.Parent.find - ==> Preparing: SELECT ? AS parent\n[A] DEBUG m.Parent.find - ==> Parameters: 1(Integer)\n[A] DEBUG m.Child.find - ==> Preparing: SELECT ? AS child\n[A] DEBUG m.Child.find - ==> Parameters: 2(Integer)\n[A] DEBUG m.Child.find - <== Total: 2\n[A] DEBUG m.Parent.find - <== Total: 5",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 1 AS parent",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "total": 5,
+            "warningCount": 0
+          },
+          {
+            "sql": "SELECT 2 AS child",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "total": 2,
+            "warningCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "complete-params-total-ignore-application-noise",
+      "input": "Preparing: SELECT ?\nParameters: 1(Integer)\nTotal: 1\nINFO cache refreshed\nordinary trailing noise",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 1",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "total": 1,
+            "warningCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "multiline-string-keeps-in-arrow-whitespace-and-dashes",
+      "input": "Preparing: SELECT ?\nParameters: line1\n\n  \na - b\nfoo <== bar(String)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'line1\n\n  \na - b\nfoo <== bar'",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "incomplete-params-result-columns-close-with-warning",
+      "input": "Preparing: SELECT ?\nParameters: line1\n<== Columns: id\n<== Row: 1\nleaked(String)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'line1'",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "incomplete-params-timestamp-closes-with-warning",
+      "input": "Preparing: SELECT ?\nParameters: line1\n2026-01-15 10:00:00 INFO cache refreshed\nleaked(String)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'line1'",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "mysql-complete-params-ignore-info-with-escaped-literal",
+      "dialect": "mysql",
+      "input": "Preparing: SELECT 'a\\'b ?' AS literal, ? AS x\nParameters: 1(Integer)\nINFO cache refreshed",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'a\\'b ?' AS literal, 1 AS x",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "extra-typed-params-remain-complete-before-info",
+      "input": "Preparing: SELECT ?\nParameters: 1(Integer), 2(Integer)\nINFO cache refreshed",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 1",
+            "paramCount": 2,
+            "placeholderCount": 1,
+            "warningCount": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "incomplete-params-logger-without-level-closes-block",
+      "input": "Preparing: SELECT ?\nParameters: line1\nm.Cache - cache refreshed\nleaked(String)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'line1'",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate-incomplete-parameters-closes-before-continuation",
+      "input": "Preparing: SELECT ?\nParameters: line1\nParameters: 2(Integer)\nleaked(String)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "SELECT 'line1'",
+            "paramCount": 1,
+            "placeholderCount": 1,
+            "warningCount": 2
+          }
+        ]
+      }
     }
   ]
 }

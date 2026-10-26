@@ -2,16 +2,22 @@
   "schemaVersion": 1,
   "apiVersion": 1,
   "id": "autumnnazi.log2sql",
-  "name": "Log2SQL · MyBatis 日志还原",
+  "name": "Log2SQL",
   "version": "0.1.0",
   "description": "粘贴 MyBatis / MyBatis-Plus 的 Preparing/Parameters DEBUG 日志，还原成可直接执行的 SQL；convert 命令同时作为 Agent 工具与 CLI 命令可用。",
   "author": "AutumnNazi",
   "license": "Apache-2.0",
-  "permissions": ["ai.tools", "host.log", "ui.html-panel"],
+  "permissions": [
+    "ai.tools",
+    "host.log",
+    "ui.html-panel",
+    "ui.pages"
+  ],
   "permissionNotes": {
     "ai.tools": "把 convert 命令暴露为 Agent 工具：传入日志文本，返回回填后的 SQL，纯计算无副作用。",
     "host.log": "插件进入 running 状态时写一条诊断日志。",
-    "ui.html-panel": "在插件详情里渲染日志粘贴与 SQL 还原面板；面板运行在无桥接的沙箱 iframe 中，不能访问宿主与网络。"
+    "ui.html-panel": "在插件详情与工作台标签页里渲染日志转换面板；脚本运行在沙箱 iframe 中，只可调用声明过的宿主能力。",
+    "ui.pages": "把「MyBatis 日志转 SQL」页面挂到标题栏「插件页面」菜单，点击在工作台标签页打开。"
   },
   "backend": {
     "default": {
@@ -42,12 +48,17 @@
             },
             "dialect": {
               "type": "string",
-              "enum": ["generic", "mysql"],
+              "enum": [
+                "generic",
+                "mysql"
+              ],
               "default": "generic",
               "description": "SQL 方言：generic 通用回填；mysql 额外支持字符串字面量的反斜杠转义"
             }
           },
-          "required": ["log"]
+          "required": [
+            "log"
+          ]
         }
       },
       {
@@ -55,7 +66,10 @@
         "title": "读取界面设置",
         "description": "读取 language/theme/dialect 偏好；独立窗口初始化时调用，文件缺失或损坏返回默认值。",
         "effect": "read",
-        "inputSchema": { "type": "object", "properties": {} }
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
       },
       {
         "id": "saveSettings",
@@ -65,9 +79,33 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "language": { "type": "string", "enum": ["auto", "zh-CN", "zh-TW", "en-US", "ja-JP", "de-DE", "ru-RU"] },
-            "theme": { "type": "string", "enum": ["auto", "light", "dark"] },
-            "dialect": { "type": "string", "enum": ["generic", "mysql"] }
+            "language": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "zh-CN",
+                "zh-TW",
+                "en-US",
+                "ja-JP",
+                "de-DE",
+                "ru-RU"
+              ]
+            },
+            "theme": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "light",
+                "dark"
+              ]
+            },
+            "dialect": {
+              "type": "string",
+              "enum": [
+                "generic",
+                "mysql"
+              ]
+            }
           }
         }
       }
@@ -76,7 +114,27 @@
       {
         "id": "workbench",
         "title": "MyBatis 日志转 SQL",
-        "html": { "source": "" }
+        "html": {
+          "source": ""
+        }
+      }
+    ],
+    "pages": [
+      {
+        "id": "workbench",
+        "title": "MyBatis 日志转 SQL",
+        "html": {
+          "source": ""
+        }
+      }
+    ],
+    "navigation": [
+      {
+        "id": "workbench-tools",
+        "title": "MyBatis 日志转 SQL",
+        "page": "workbench",
+        "location": "tools",
+        "order": 0
       }
     ]
   }

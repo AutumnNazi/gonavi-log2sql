@@ -91,10 +91,18 @@
   // 独立窗口里宿主还会注入 window.gonaviHostPrefs = {locale, theme}，
   // 「自动」语言/主题据此跟随 GoNavi 主程序；面板场景没有它，回退系统语言与 prefers-color-scheme。
   var hostPrefs = window.gonaviHostPrefs || null;
+  // 工作台标签页（插件页面）里宿主注入 window.gonavi 页面桥，app.info 提供宿主 locale，
+  // 让「自动」语言在页面场景同样跟随 GoNavi。优先级：窗口 hostPrefs > 页面桥 > 系统语言。
+  var pageBridge = window.gonavi && typeof window.gonavi.call === 'function' ? window.gonavi : null;
   var langPref = 'auto';
   var themePref = 'auto';
   var lang = resolveLanguagePref();
   var dialect = 'generic';
+  // 初始化读取期间用户改过哪些字段：迟到的持久化值按字段合并，不覆盖用户的选择，
+  // 也不能把尚未读回的其他字段用默认值一起写掉
+  var settingsLoaded = false;
+  var pendingSave = false;
+  var dirty = { language: false, theme: false, dialect: false };
   var mediaDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   var els = {
     title: document.getElementById('panel-title'),
@@ -183,6 +191,7 @@
     els.langSelect.value = langPref;
     els.langSelect.addEventListener('change', function () {
       langPref = els.langSelect.value;
+      dirty.language = true;
       lang = resolveLanguagePref();
       applyStaticText();
       render();
@@ -200,6 +209,7 @@
     els.dialectSelect.value = dialect;
     els.dialectSelect.addEventListener('change', function () {
       dialect = els.dialectSelect.value;
+      dirty.dialect = true;
       render();
       persistSettings();
     });
@@ -213,6 +223,7 @@
       btn.title = t(pair[1]);
       btn.addEventListener('click', function () {
         themePref = pair[0];
+        dirty.theme = true;
         applyTheme();
         syncThemeButtons();
         persistSettings();
@@ -378,6 +389,11 @@
   // 保存当前偏好到插件数据目录（GONAVI_PLUGIN_DATA/settings.json）
   function persistSettings() {
     if (!bridge) return; // 嵌入式沙箱面板无桥接，设置不跨会话保留
+    if (!settingsLoaded) {
+      // 读取尚未返回：现在保存会把未加载的字段用默认值写掉，等 applySettings 后合并保存
+      pendingSave = true;
+      return;
+    }
     bridge.invoke('saveSettings', {
       language: langPref,
       theme: themePref,
@@ -390,21 +406,28 @@
   // 把读回的设置应用到当前 UI；非法字段保持现有默认
   function applySettings(settings) {
     if (!settings || typeof settings !== 'object') return;
-    if (typeof settings.language === 'string') {
+    settingsLoaded = true;
+    // 只回填用户没动过的字段；用户改过的字段以当前选择为准
+    if (!dirty.language && typeof settings.language === 'string') {
       langPref = settings.language;
       lang = resolveLanguagePref();
       els.langSelect.value = langPref;
     }
-    if (settings.theme === 'light' || settings.theme === 'dark' || settings.theme === 'auto') {
+    if (!dirty.theme && (settings.theme === 'light' || settings.theme === 'dark' || settings.theme === 'auto')) {
       themePref = settings.theme;
       applyTheme();
     }
-    if (settings.dialect === 'mysql' || settings.dialect === 'generic') {
+    if (!dirty.dialect && (settings.dialect === 'mysql' || settings.dialect === 'generic')) {
       dialect = settings.dialect;
       els.dialectSelect.value = dialect;
     }
     applyStaticText();
     render();
+    // 初始化期间用户改过东西：等读取完成后再合并保存，避免用默认值覆盖磁盘设置
+    if (pendingSave) {
+      pendingSave = false;
+      persistSettings();
+    }
   }
 
   // 状态栏短暂提示（保存失败等），2.5 秒后恢复为统计信息
@@ -425,7 +448,25 @@
     bridge.invoke('getSettings', {}).then(function (settings) {
       applySettings(settings);
     }, function () {
-      // 读取失败保持默认设置即可，不打断使用
+      // 读取失败：解除待保存状态（读取不可用，保存多半也会失败，但不应永久挂起）
+      settingsLoaded = true;
+      if (pendingSave) {
+        pendingSave = false;
+        persistSettings();
+      }
+    });
+  }
+  // 页面场景：工作台标签页没有窗口桥接，改用页面桥的 app.info 获取宿主语言
+  if (!hostPrefs && pageBridge) {
+    pageBridge.call('app.info', {}).then(function (info) {
+      if (info && typeof info.locale === 'string' && LANGS.indexOf(info.locale) >= 0) {
+        hostPrefs = { locale: info.locale };
+        lang = resolveLanguagePref();
+        applyStaticText();
+        render();
+      }
+    }, function () {
+      // 页面桥不可用时保持系统语言探测结果
     });
   }
 })();

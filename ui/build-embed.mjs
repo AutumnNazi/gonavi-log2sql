@@ -55,6 +55,10 @@ console.log(`panel html: ${panelBytes} bytes / ${limit} limit`);
 
 const manifest = JSON.parse(readFileSync(templatePath, 'utf8'));
 manifest.contributes.panels[0].html.source = html;
+// 插件页面（工作台标签页 + 标题栏菜单）复用同一份面板文档
+for (const page of manifest.contributes.pages ?? []) {
+  if (page.html) page.html.source = html;
+}
 if (executable) {
   manifest.backend.default.executable = executable;
 }

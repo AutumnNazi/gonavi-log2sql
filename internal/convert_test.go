@@ -9,9 +9,9 @@ import (
 // 跑 testdata/cases.json 共享向量：与 ui/engine.test.mjs 使用同一份数据，
 // 双端任何一方行为变化都会在这里或 Node 测试中暴露。
 type vectorCase struct {
-	Name    string `json:"name"`
-	Dialect string `json:"dialect"`
-	Input   string `json:"input"`
+	Name     string `json:"name"`
+	Dialect  string `json:"dialect"`
+	Input    string `json:"input"`
 	Expected struct {
 		Statements []struct {
 			SQL              string  `json:"sql"`
