@@ -1,6 +1,6 @@
-// 组装最终面板并写入插件清单：
+// 组装 HTML 页面并写入插件清单：
 //   ui/panel.html + ui/engine.js + ui/app.js  ->  <out>/gonavi.plugin.json
-// 面板 HTML 是清单内联文本，宿主上限 256 KiB（UTF-8 字节），超限直接失败。
+// 页面 HTML 是清单内联文本，宿主上限 256 KiB（UTF-8 字节），超限直接失败。
 // 用法：node ui/build-embed.mjs --out pkg --template tools/manifest.template.json
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -62,8 +62,7 @@ if (panelBytes > limit) {
 console.log(`panel html: ${panelBytes} bytes / ${limit} limit`);
 
 const manifest = JSON.parse(readFileSync(templatePath, 'utf8'));
-manifest.contributes.panels[0].html.source = html;
-// 插件页面（工作台标签页 + 标题栏菜单）复用同一份面板文档
+// 插件页面（工作台标签页 + 标题栏菜单）使用内联文档
 for (const page of manifest.contributes.pages ?? []) {
   if (page.html) page.html.source = html;
 }
@@ -80,7 +79,7 @@ mkdirSync(outDir, { recursive: true });
 const manifestPath = resolve(outDir, 'gonavi.plugin.json');
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
 console.log(`manifest written: ${manifestPath}`);
-// 独立窗口入口：与内嵌面板同一份内联文档，作为包内资产由 window.entry 引用。
+// 独立窗口入口：与 HTML 页面同一份内联文档，作为包内资产由 window.entry 引用。
 // 窗口里宿主注入 window.gonaviPlugin 桥接，设置持久化走 getSettings/saveSettings。
 const windowDir = resolve(outDir, 'ui');
 mkdirSync(windowDir, { recursive: true });

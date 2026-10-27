@@ -4,8 +4,8 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 还原成可直接执行的 SQL。
 
 - 插件 ID：`gh-autumnnazi.log2sql`
-- 权限：`ui.html-panel`（沙箱面板）、`ai.tools`（Agent 工具）、`host.log`（启动诊断）
-- 首发版本：`0.1.0`；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
+- 权限：`ui.html-panel`（HTML 沙箱页面）、`ui.pages`（工作台页面导航）、`ai.tools`（Agent 工具）、`host.log`（启动诊断）
+- 市场首发修正版：`0.1.1`；已公开的 `v0.1.0` 不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
 - 许可：Apache-2.0（完整正文见 `LICENSE`，SDK 归属与 Go 标准库许可见 `THIRD_PARTY_NOTICES`）
 
 ## 功能
@@ -24,10 +24,13 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 
 | 使用面 | 入口 |
 |---|---|
-| 内嵌面板 | GoNavi 设置中心 → 插件 → log2sql 详情 → "MyBatis 日志转 SQL" 标签页；粘贴即转换，一键复制 |
+| 工作台页面 | GoNavi 标题栏「插件页面」菜单 →「MyBatis 日志转 SQL」；在工作台标签页打开，粘贴即转换，一键复制 |
 | 独立窗口 | 插件详情页「打开窗口」按钮（manifest `window.entry`）；可常驻桌面，**语言/主题/方言设置持久化** |
 | Agent 工具 | 声明 `ai.tools`，`convert` 命令进入 Agent 工具目录，可在 AI 对话中直接转换 |
 | CLI | `gonavi plugin invoke --args '{"log":"..."}' gh-autumnnazi.log2sql convert` |
+
+`0.1.1` 不再提供插件详情中的 HTML 面板；人工转换请使用工作台页面或独立窗口，
+插件详情中的 `convert` 命令执行框仍需输入 `{"log":"..."}` 形式的 JSON。
 
 ## 设置持久化
 
@@ -38,15 +41,15 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 { "language": "auto", "theme": "auto", "dialect": "generic" }
 ```
 
-内嵌 html 面板没有宿主桥接（沙箱 iframe 无存储、无网络、无桥接），设置只能使用默认值——
-这是宿主能力边界，不是配置缺失。
+工作台 HTML 页面没有宿主桥接（沙箱 iframe 无存储、无网络、无桥接），
+语言/主题/方言可在当前页面手动调整，但关闭后不持久化；需保存偏好时请使用独立窗口。
 
 初始化读取期间的改动按字段合并：只改主题不会把尚未读回的语言/方言默认值写掉，读取完成后
 合并保存一次；读取失败时解除待保存状态，不会永久挂起。
 
 ## i18n 与主题（对齐 GoNavi 宿主）
 
-宿主没有给 html-panel 留任何运行时桥接（无 postMessage、无法读取宿主设置），界面按下述方式对齐宿主：
+工作台 HTML 页面的沙箱没有运行时桥接（无 postMessage、无法读取宿主设置），界面按下述方式对齐宿主：
 
 - **语言**：支持 GoNavi 全部六语言（`zh-CN / zh-TW / en-US / ja-JP / de-DE / ru-RU`，同
   `shared/i18n/locales.ts`），默认按系统语言归一探测，未命中回退宿主默认 `zh-CN`；右上角可手动切换
@@ -54,17 +57,17 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 - **主题**：浅/深两套配色与字体的取值静态对齐 GoNavi v2 主题
   （`frontend/src/styles/v2Theme/v2-theme-01-gonavi-v2.css` 的 `--gn-*` 变量），默认跟随系统
   `prefers-color-scheme`，右上角可三态切换（跟随系统/浅色/深色）
-- **已知限制**：manifest 的面板标题是静态单语言（宿主清单无本地化机制）；引擎告警文案
+- **已知限制**：manifest 的页面标题是静态单语言（宿主清单无本地化机制）；引擎告警文案
   （参数/占位符不匹配等）当前为中文——界面文案已全部 i18n
-- 若上游未来给 html-panel 增加宿主主题/语言通道，此处可无缝切换为跟随宿主设置
+- 若上游未来给 HTML 页面增加宿主主题/语言通道，此处可切换为跟随宿主设置
 
 ## 架构：一个包，双引擎，单语料
 
 ```
-gonavi.plugin.json ── manifest（清单内联 HTML 面板，≤256 KiB）
+gonavi.plugin.json ── manifest（清单内联 HTML 页面，≤256 KiB）
 ├── bin/<os>-<arch>/plugin(.exe)  各平台 Go 后端：stdio JSON-RPC
 ├── LICENSE / THIRD_PARTY_NOTICES  项目与第三方许可
-├── panels[].html.source  内嵌沙箱面板：内联 JS 引擎（无宿主桥接），粘贴→转换→复制
+├── contributes.pages[].html.source  工作台沙箱页面：内联 JS 引擎（无宿主桥接），粘贴→转换→复制
 └── ui/window.html        独立窗口入口：同一份内联文档 + 宿主 window.gonaviPlugin 桥接，
                           负责设置读写（GONAVI_PLUGIN_DATA/settings.json）
 
@@ -129,10 +132,12 @@ gonavi plugin --root <插件根> enable gh-autumnnazi.log2sql
   独立 root 下 install/replace/enable/invoke 端到端真跑——含「值内逗号+空格」
   合并恢复、mysql 方言 `\'` 字面量保留、getSettings/saveSettings 读写往返
   （settings.json 真实落盘插件数据目录）
-- 未验证：桌面 Wails 窗口内 HTML 面板的实际渲染、剪贴板行为、独立窗口渲染与
+- 未验证：桌面工作台 HTML 页面的实际渲染、剪贴板行为、独立窗口渲染与
   设置持久化的桌面交互（上游文档自述该能力仍需平台验收）；Agent 对话中的
-  工具调用路径；本轮 Linux/macOS 原生运行尚待 CI。五个平台对应原生 CI 测试通过后，
-  才创建稳定 Release，且只附带一个合并 ZIP；网站最终确认由发布者操作。
+  工具调用路径。市场修正版需五个平台对应原生 CI 测试通过，且合并 ZIP 通过固定源码
+  commit `790efd9e07804cac6823851c7a8c4338f2b3fc8c` 的市场 `market.ValidatePackage`，
+  才创建稳定 `v0.1.1` Release，且只附带一个合并 ZIP；宿主 CLI `valid:true` 不替代市场校验，
+  网站最终确认由发布者操作。
 
 ## 目录
 

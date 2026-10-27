@@ -78,6 +78,37 @@ function zipEntries(path) {
   return entries;
 }
 
+test('market packages omit detail panels and preserve HTML pages and windows on all five platforms', () => {
+  const root = fixture();
+  binaries(root);
+  let sharedManifest;
+  for (const platform of platforms) {
+    const out = `release-${platform.replace('/', '-')}`;
+    const result = invoke(root, ['--out', out, '--platforms', platform, '--binaries', 'artifacts']);
+    assert.equal(result.status, 0, result.output);
+    const manifest = JSON.parse(readFileSync(join(root, out, 'gonavi.plugin.json'), 'utf8'));
+    assert.equal(Object.hasOwn(manifest.contributes, 'panels'), false, `${platform}: market manifest must omit contributes.panels`);
+    assert.equal(manifest.version, '0.1.1');
+    assert.deepEqual(Object.keys(manifest.backend.platforms), [platform]);
+    assert.deepEqual(manifest.contributes.commands.map(command => command.id), ['convert', 'getSettings', 'saveSettings']);
+    assert.ok(manifest.permissions.includes('ui.html-panel'));
+    assert.ok(manifest.permissions.includes('ui.pages'));
+    assert.deepEqual(manifest.contributes.navigation, [{ id: 'workbench-tools', title: 'MyBatis 日志转 SQL', page: 'workbench', location: 'tools', order: 0 }]);
+    assert.equal(manifest.contributes.pages.length, 1);
+    const page = manifest.contributes.pages[0];
+    assert.equal(page.id, 'workbench');
+    assert.equal(page.title, 'MyBatis 日志转 SQL');
+    assert.ok(Buffer.byteLength(page.html.source, 'utf8') <= 256 * 1024);
+    assert.match(page.html.source, /window\.log2sql = engine;/);
+    assert.doesNotMatch(page.html.source, /__ENGINE_JS__|__APP_JS__/);
+    assert.equal(manifest.window.entry, 'ui/window.html');
+    assert.equal(readFileSync(join(root, out, manifest.window.entry), 'utf8'), page.html.source);
+    const { backend, ...shared } = manifest;
+    if (sharedManifest) assert.deepEqual(shared, sharedManifest);
+    else sharedManifest = shared;
+  }
+});
+
 test('legacy build arguments without --out choose a fresh pkg child and preserve old content', () => {
   const root = fixture();
   binaries(root, ['windows/amd64']);
@@ -170,7 +201,8 @@ test('tested binaries form one root package with isolated platform paths and sha
     assert.equal(readFileSync(join(root, 'release', executable), 'utf8'), `tested:${platform}`);
   }
   assert.match(readFileSync(join(root, 'release', 'LICENSE'), 'utf8'), /Apache License[\s\S]*Version 2.0/);
-  assert.equal(readFileSync(join(root, 'release', manifest.window.entry), 'utf8'), manifest.contributes.panels[0].html.source);
+  assert.equal(Object.hasOwn(manifest.contributes, 'panels'), false);
+  assert.equal(readFileSync(join(root, 'release', manifest.window.entry), 'utf8'), manifest.contributes.pages[0].html.source);
   assert.equal(readFileSync(join(root, 'pkg', 'bin', 'keep.txt'), 'utf8'), 'keep');
   assert.equal(readFileSync(join(root, 'build', 'panel.preview.html'), 'utf8'), 'old preview');
 });

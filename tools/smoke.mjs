@@ -113,7 +113,7 @@ export async function runSmoke(binary, { args = [], timeoutMs = 5000 } = {}) {
       } catch (error) { fail(error); }
     });
 
-    await request('plugin.initialize', { apiVersion: 1, pluginId, version: '0.1.0', generation: 1,
+    await request('plugin.initialize', { apiVersion: 1, pluginId, version: '0.1.1', generation: 1,
       config: {}, hostVersion: '1.0.0', locale: 'en-US', permissions: [] },
     (value) => check(value?.apiVersion === 1, 'initialize apiVersion is required'));
     const logged = new Promise((resolve, reject) => { logWaiter = { resolve, reject }; });
