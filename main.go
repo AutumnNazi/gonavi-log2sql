@@ -50,7 +50,7 @@ func onRunning(ctx context.Context, event string, generation uint64) {
 		return
 	}
 	if host, ok := plugin.HostFromContext(ctx); ok {
-		_ = host.Log(ctx, "info", "autumnnazi.log2sql running")
+		_ = host.Log(ctx, "info", "gh-autumnnazi.log2sql running")
 	}
 }
 

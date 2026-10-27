@@ -2,7 +2,7 @@
 //   ui/panel.html + ui/engine.js + ui/app.js  ->  <out>/gonavi.plugin.json
 // 面板 HTML 是清单内联文本，宿主上限 256 KiB（UTF-8 字节），超限直接失败。
 // 用法：node ui/build-embed.mjs --out pkg --template tools/manifest.template.json
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +17,14 @@ function argValue(flag, fallback) {
 const outDir = resolve(root, argValue('--out', 'pkg'));
 const templatePath = resolve(root, argValue('--template', 'tools/manifest.template.json'));
 const executable = argValue('--executable', '');
+const platforms = argValue('--platforms', `${process.platform === 'win32' ? 'windows' : process.platform}/${process.arch === 'x64' ? 'amd64' : process.arch}`).split(',').sort();
+const allowedPlatforms = ['windows/amd64', 'linux/amd64', 'linux/arm64', 'darwin/amd64', 'darwin/arm64'];
+if (platforms.some(platform => !allowedPlatforms.includes(platform)) || new Set(platforms).size !== platforms.length) {
+  throw new Error('invalid platform: ' + platforms.join(','));
+}
+if (executable && (platforms.length !== 1 || !/^bin\/[a-z0-9_./-]+$/.test(executable) || executable.split('/').includes('..'))) {
+  throw new Error('--executable must be a relative bin path for a single platform');
+}
 
 // engine.js 剥掉 ESM 导出行并挂到 window；面板脚本不是 module。
 // 校验捕获行首任何 export 形式（export {}、export function、export const），
@@ -59,8 +67,13 @@ manifest.contributes.panels[0].html.source = html;
 for (const page of manifest.contributes.pages ?? []) {
   if (page.html) page.html.source = html;
 }
-if (executable) {
-  manifest.backend.default.executable = executable;
+manifest.backend = { platforms: {} };
+for (const platform of platforms) {
+  const [os, arch] = platform.split('/');
+  manifest.backend.platforms[platform] = {
+    executable: executable || `bin/${os}-${arch}/plugin${os === 'windows' ? '.exe' : ''}`,
+    runtime: 'native',
+  };
 }
 
 mkdirSync(outDir, { recursive: true });
@@ -78,5 +91,7 @@ console.log(`window entry written: ${windowPath}`);
 // 浏览器直接打开即可预览 UI，无需安装进 GoNavi。
 const previewDir = resolve(root, 'build');
 mkdirSync(previewDir, { recursive: true });
-writeFileSync(resolve(previewDir, 'panel.preview.html'), html, 'utf8');
-console.log(`panel preview written: ${resolve(previewDir, 'panel.preview.html')}`);
+if (!existsSync(resolve(previewDir, 'panel.preview.html'))) {
+  writeFileSync(resolve(previewDir, 'panel.preview.html'), html, { encoding: 'utf8', flag: 'wx' });
+}
+console.log(`panel preview available: ${resolve(previewDir, 'panel.preview.html')}`);

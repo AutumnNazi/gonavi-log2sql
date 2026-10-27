@@ -1,0 +1,173 @@
+name: Native tests and release candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+env:
+  GOWORK: 'off'
+  CGO_ENABLED: '0'
+
+# Runner labels: https://github.com/actions/runner-images#available-images
+# macos-14 retirement: https://github.com/actions/runner-images/issues/13518
+# Action SHAs verified through api.github.com/repos/actions/<action>/git/ref/tags/<version>.
+jobs:
+  native:
+    name: Native ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-amd64
+            goos: windows
+            goarch: amd64
+            nodeos: win32
+            nodearch: x64
+            runner: windows-latest
+            binary: plugin.exe
+          - platform: linux-amd64
+            goos: linux
+            goarch: amd64
+            nodeos: linux
+            nodearch: x64
+            runner: ubuntu-latest
+            binary: plugin
+          - platform: linux-arm64
+            goos: linux
+            goarch: arm64
+            nodeos: linux
+            nodearch: arm64
+            runner: ubuntu-24.04-arm
+            binary: plugin
+          - platform: darwin-arm64
+            goos: darwin
+            goarch: arm64
+            nodeos: darwin
+            nodearch: arm64
+            runner: macos-15
+            binary: plugin
+          - platform: darwin-amd64
+            goos: darwin
+            goarch: amd64
+            nodeos: darwin
+            nodearch: x64
+            runner: macos-15-intel
+            binary: plugin
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.26.1'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+      - name: Require the native OS and architecture
+        env:
+          EXPECT_GOOS: ${{ matrix.goos }}
+          EXPECT_GOARCH: ${{ matrix.goarch }}
+          EXPECT_NODEOS: ${{ matrix.nodeos }}
+          EXPECT_NODEARCH: ${{ matrix.nodearch }}
+        run: |
+          node -e "const assert = require('node:assert/strict'); assert.equal(process.platform, process.env.EXPECT_NODEOS); assert.equal(process.arch, process.env.EXPECT_NODEARCH);"
+          test "$(go env GOHOSTOS)" = "$EXPECT_GOOS"
+          test "$(go env GOHOSTARCH)" = "$EXPECT_GOARCH"
+          test "$(go env GOOS)" = "$EXPECT_GOOS"
+          test "$(go env GOARCH)" = "$EXPECT_GOARCH"
+      - name: Test Go and JavaScript
+        run: |
+          go test ./...
+          go vet ./...
+          node --test ui/engine.test.mjs tools/*.test.mjs
+      - name: Build one isolated native package
+        run: node tools/build.mjs --out build/ci/${{ matrix.platform }} --goos ${{ matrix.goos }} --goarch ${{ matrix.goarch }}
+      - name: Validate real stdio initialization, conversion, settings and shutdown
+        run: node tools/smoke.mjs build/ci/${{ matrix.platform }}/bin/${{ matrix.platform }}/${{ matrix.binary }}
+      - name: Upload the tested platform binary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-bin-${{ matrix.platform }}
+          # Archive root is <os>-<arch>/; aggregate restores the enclosing bin/.
+          path: build/ci/${{ matrix.platform }}/bin/
+          if-no-files-found: error
+          retention-days: 14
+
+  aggregate:
+    name: Assemble reviewed-release candidate (no public release)
+    needs: native
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    env:
+      PLATFORMS: windows/amd64,linux/amd64,linux/arm64,darwin/amd64,darwin/arm64
+      ARCHIVE: build/release/gh-autumnnazi.log2sql-0.1.0.zip
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.26.1'
+      - name: Download all successful native binaries
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: native-bin-*
+          path: build/assembled/bin
+          merge-multiple: true
+      - name: Restore executable permissions lost in artifact transport
+        run: chmod +x build/assembled/bin/linux-*/plugin build/assembled/bin/darwin-*/plugin
+      - name: Assemble without recompiling native-tested binaries
+        run: node tools/build.mjs --out build/release/pkg --platforms "$PLATFORMS" --binaries build/assembled --archive "$ARCHIVE"
+      - name: Verify the only ZIP, platform manifest and binary digests
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, zipfile
+          archive = pathlib.Path(os.environ['ARCHIVE'])
+          platforms = set(os.environ['PLATFORMS'].split(','))
+          assert list(archive.parent.glob('*.zip')) == [archive], 'expected exactly one ZIP'
+          assert archive.stat().st_size <= 64 * 1024 * 1024, 'compressed ZIP exceeds 64 MiB'
+          with zipfile.ZipFile(archive) as package:
+              names = package.namelist()
+              assert len(names) == len(set(names)), 'duplicate ZIP entry'
+              assert 'gonavi.plugin.json' in names and 'LICENSE' in names, 'missing root release files'
+              assert package.testzip() is None, 'corrupt ZIP entry'
+              manifest = json.loads(package.read('gonavi.plugin.json').decode('utf-8'))
+              assert manifest['id'] == 'gh-autumnnazi.log2sql' and manifest['version'] == '0.1.0'
+              assert 'default' not in manifest['backend'], 'backend.default must be absent'
+              assert set(manifest['backend']['platforms']) == platforms, 'platform list mismatch'
+              expected = set()
+              for platform in sorted(platforms):
+                  name = 'plugin.exe' if platform.startswith('windows/') else 'plugin'
+                  entry = f"bin/{platform.replace('/', '-')}/{name}"
+                  expected.add(entry)
+                  assert manifest['backend']['platforms'][platform]['executable'] == entry, 'isolated executable path mismatch'
+                  native = pathlib.Path('build/assembled') / entry
+                  assert hashlib.sha256(native.read_bytes()).digest() == hashlib.sha256(package.read(entry)).digest(), 'native binary changed'
+              assert {name for name in names if name.startswith('bin/') and not name.endswith('/')} == expected, 'unexpected binary set'
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          print(f'SHA256 {digest}  {archive.name}')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write(f'Native tests passed on all five platforms. No public release was created.\n\nSHA256: `{digest}`  `{archive.name}`\n')
+          PY
+      - name: Upload the single ZIP for coordinator review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gh-autumnnazi.log2sql-0.1.0-release-candidate
+          path: ${{ env.ARCHIVE }}
+          if-no-files-found: error
+          retention-days: 14

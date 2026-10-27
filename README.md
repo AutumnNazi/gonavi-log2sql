@@ -3,9 +3,10 @@
 GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBUG 日志
 还原成可直接执行的 SQL。
 
-- 插件 ID：`autumnnazi.log2sql`
+- 插件 ID：`gh-autumnnazi.log2sql`
 - 权限：`ui.html-panel`（沙箱面板）、`ai.tools`（Agent 工具）、`host.log`（启动诊断）
-- 许可：Apache-2.0
+- 首发版本：`0.1.0`；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
+- 许可：Apache-2.0（完整正文见 `LICENSE`，SDK 归属与 Go 标准库许可见 `THIRD_PARTY_NOTICES`）
 
 ## 功能
 
@@ -26,7 +27,7 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 | 内嵌面板 | GoNavi 设置中心 → 插件 → log2sql 详情 → "MyBatis 日志转 SQL" 标签页；粘贴即转换，一键复制 |
 | 独立窗口 | 插件详情页「打开窗口」按钮（manifest `window.entry`）；可常驻桌面，**语言/主题/方言设置持久化** |
 | Agent 工具 | 声明 `ai.tools`，`convert` 命令进入 Agent 工具目录，可在 AI 对话中直接转换 |
-| CLI | `gonavi plugin invoke --args '{"log":"..."}' autumnnazi.log2sql convert` |
+| CLI | `gonavi plugin invoke --args '{"log":"..."}' gh-autumnnazi.log2sql convert` |
 
 ## 设置持久化
 
@@ -61,7 +62,8 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 
 ```
 gonavi.plugin.json ── manifest（清单内联 HTML 面板，≤256 KiB）
-├── bin/plugin(.exe)      Go 后端：convert + getSettings/saveSettings，stdio JSON-RPC
+├── bin/<os>-<arch>/plugin(.exe)  各平台 Go 后端：stdio JSON-RPC
+├── LICENSE / THIRD_PARTY_NOTICES  项目与第三方许可
 ├── panels[].html.source  内嵌沙箱面板：内联 JS 引擎（无宿主桥接），粘贴→转换→复制
 └── ui/window.html        独立窗口入口：同一份内联文档 + 宿主 window.gonaviPlugin 桥接，
                           负责设置读写（GONAVI_PLUGIN_DATA/settings.json）
@@ -76,44 +78,61 @@ Go 后端与前端 JS 引擎逐层同构（splitLog / parseParameters / fillSQL 
 
 ## 开发
 
-环境：Go 1.22+、Node 20+；`go.mod` 的 replace 指向本地 GoNavi 检出（`E:/code/GoNavi/sdk/go`，
-按需修改）。
+环境：Go 1.26.1+、Node 20+。`go.mod` 固定远程 GoNavi SDK
+`v0.0.0-20261027030648-790efd9e0780`（上游 commit `790efd9e07804cac6823851c7a8c4338f2b3fc8c`，
+SDK 自身要求 Go 1.22）；`go.sum` 验证下载内容，不依赖本机绝对路径或 `replace`。
 
 ```sh
-# 测试（双端同一份向量）
-go test ./internal/ -count=1
-node --test ui/engine.test.mjs
+# 测试（双端同一份向量 + 打包安全回归）
+go test ./... -count=1
+go vet ./...
+node --test ui/*.test.mjs tools/build.test.mjs
 
-# 组包到 pkg/（编译后端 + 内联面板 + 生成清单）
+# 本机组包：无参输出全新 pkg/<timestamp>-<uuid>/，不覆盖旧 pkg 内容
 node tools/build.mjs
 
-# 组包并用上游 CLI 静态校验（首次会构建 gonavi CLI 到 build/，已存在则跳过）
-node tools/build.mjs --check
+# 明确输出必须是不存在的路径；编译后端 + 内联共享资源 + 根清单/许可
+node tools/build.mjs --out build/local-new --archive build/log2sql-local-new.zip
+
+# 静态校验可选，需要上游 GoNavi 检出；CLI 编译失败直接报告依赖错误
+# 每次 CLI/check root 都放在全新 build/check-<uuid>/，不修改主应用
+node tools/build.mjs --out build/check-package-new --check --gonavi <GoNavi检出目录>
 
 # 面板 UI 预览：浏览器直接打开（无需安装进 GoNavi）
 #   build/panel.preview.html
 
-# 交叉编译示例
-node tools/build.mjs --goos linux --goarch arm64
+# 兼容原单平台参数（CI matrix 在对应原生 runner 测试二进制）
+node tools/build.mjs --out build/ci/linux-arm64 --goos linux --goarch arm64
+
+# CI 合包：只复制对应 runner 已测二进制，不再交叉编译后端
+# 输入：<merged-artifact-root>/bin/<os>-<arch>/plugin[.exe]
+node tools/build.mjs --out <fresh> --platforms windows/amd64,linux/amd64,linux/arm64,darwin/amd64,darwin/arm64 --binaries <merged-artifact-root> --archive <zip>
+# <zip> 必须是尚不存在、位于成品目录外的 .zip 路径
 ```
 
-安装到 GoNavi（桌面：设置 → 插件 → 本地安装选择 `pkg/`；或 CLI）：
+成品仅使用 `backend.platforms`，各平台路径隔离为 `bin/<os>-<arch>/plugin[.exe]`；
+共享清单与 `ui/window.html` 每次合包生成一次。ZIP 使用 Go 标准库、固定时间与权限、排序 entry，
+同一二进制输入可重复生成字节一致归档；压缩大小超过 64 MiB 会失败。归档只包含根清单、
+`LICENSE`、`THIRD_PARTY_NOTICES`、窗口入口和声明的二进制，不包含 Git、缓存或本地设置。
+
+安装到 GoNavi（桌面：设置 → 插件 → 本地安装选择脚本输出目录或 ZIP；或 CLI）：
 
 ```sh
-gonavi plugin --root <插件根> inspect pkg       # 取 digest
-gonavi plugin --root <插件根> install --digest <digest> --trust pkg
-gonavi plugin --root <插件根> enable autumnnazi.log2sql
+gonavi plugin --root <插件根> inspect <成品目录或ZIP>       # 取 digest
+gonavi plugin --root <插件根> install --digest <digest> --trust <成品目录或ZIP>
+gonavi plugin --root <插件根> enable gh-autumnnazi.log2sql
 ```
 
 ## 已验证 / 未验证
 
-- 已实测：Go/Node 双端 54 组共享向量全绿；`plugin check` `valid:true`；
+- 核心 Go/Node 双端 73 组共享向量已审查通过；早期本机包曾验证 `plugin check` `valid:true`；
   独立 root 下 install/replace/enable/invoke 端到端真跑——含「值内逗号+空格」
   合并恢复、mysql 方言 `\'` 字面量保留、getSettings/saveSettings 读写往返
   （settings.json 真实落盘插件数据目录）
 - 未验证：桌面 Wails 窗口内 HTML 面板的实际渲染、剪贴板行为、独立窗口渲染与
   设置持久化的桌面交互（上游文档自述该能力仍需平台验收）；Agent 对话中的
-  工具调用路径；Linux/macOS 构建
+  工具调用路径；本轮 Linux/macOS 原生运行尚待 CI。五个平台对应原生 CI 测试通过后，
+  才创建稳定 Release，且只附带一个合并 ZIP；网站最终确认由发布者操作。
 
 ## 目录
 
@@ -126,5 +145,7 @@ ui/app.js                面板交互（粘贴/防抖/卡片/复制降级链）
 ui/panel.html            面板骨架（样式 + 注入占位）
 ui/build-embed.mjs       面板组装 + 256 KiB 校验 + 清单生成
 tools/manifest.template.json  清单模板
-tools/build.mjs          构建编排（--check 附带 CLI 校验）
+tools/build.mjs          安全单/多平台构建（--binaries 合包，--archive ZIP，--check 可选）
+tools/build.test.mjs     打包 CLI 红绿与旧产物保护测试
+tools/archive/main.go    Go 标准库确定性 ZIP（64 MiB 压缩上限）
 ```
