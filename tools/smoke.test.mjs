@@ -21,14 +21,20 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     return;
   }
   let result = {};
-  if (request.method === 'plugin.initialize') result = mode === 'missing-api' ? {} : { apiVersion: 1 };
+  if (request.method === 'plugin.initialize') {
+    if (mode === 'compatible' && (request.params.version !== '0.1.2' || request.params.hostVersion !== '1.2.0')) {
+      respond({ jsonrpc: '2.0', id: request.id, error: { code: -32602, message: 'unsupported initialize versions' } });
+      return;
+    }
+    result = mode === 'missing-api' ? {} : { apiVersion: 1 };
+  }
   if (request.method === 'plugin.invoke') {
     if (request.params.commandId === 'convert') result = { statements: [{
       sql: mode === 'bad-sql' ? 'SELECT 0' : "SELECT * FROM smoke_table WHERE id = 7 AND name = 'smoke'",
       total: 1, paramCount: 2, placeholderCount: 2 }] };
     if (request.params.commandId === 'getSettings') result = settings;
     if (request.params.commandId === 'saveSettings') {
-      settings = request.params.arguments;
+      settings = { ...request.params.arguments, language: 'auto', theme: 'auto' };
       fs.writeFileSync(path.join(process.env.GONAVI_PLUGIN_DATA, 'settings.json'), JSON.stringify(settings), 'utf8');
       result = { saved: mode !== 'not-saved' };
     }
@@ -74,6 +80,12 @@ test('smoke validates the full flow and cleans its isolated settings directory',
   assert.equal(result.exitCode, 0);
   const leaked = (await readdir(tmpdir())).filter((name) => name.startsWith('gonavi-log2sql-smoke-') && !before.has(name));
   assert.deepEqual(leaked, []);
+});
+
+test('smoke sends plugin 0.1.2 and the minimum supported host version during initialization', async () => {
+  const result = await runSmoke(process.argv[0], options('compatible'));
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.flow[0], 'plugin.initialize');
 });
 
 test('exit zero without protocol output is not a smoke pass', async () => {

@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync"
@@ -17,10 +18,21 @@ func TestSettingsRoundTrip(t *testing.T) {
 	if got != DefaultSettings() {
 		t.Fatalf("期望默认设置，实际 %+v", got)
 	}
-	// 写入后读回
-	want := Settings{Language: "en-US", Theme: "dark", Dialect: "mysql"}
-	if err := SaveSettings(dir, want); err != nil {
+	// 旧手选值仍可传入，但保存与回读必须固定跟随宿主。
+	want := Settings{Language: "auto", Theme: "auto", Dialect: "mysql"}
+	if err := SaveSettings(dir, Settings{Language: "en-US", Theme: "dark", Dialect: "mysql"}); err != nil {
 		t.Fatalf("保存失败: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved Settings
+	if err := json.Unmarshal(data, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved != want {
+		t.Fatalf("保存的旧界面偏好未忽略：期望 %+v，实际 %+v", want, saved)
 	}
 	got, err = LoadSettings(dir)
 	if err != nil {
@@ -28,6 +40,30 @@ func TestSettingsRoundTrip(t *testing.T) {
 	}
 	if got != want {
 		t.Fatalf("回读不符：期望 %+v，实际 %+v", want, got)
+	}
+}
+
+func TestSettingsLegacyPreferencesIgnoredOnLoad(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	legacy := []byte(`{"language":"en-US","theme":"dark","dialect":"mysql"}`)
+	if err := os.WriteFile(path, legacy, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadSettings(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Settings{Language: "auto", Theme: "auto", Dialect: "mysql"}
+	if got != want {
+		t.Fatalf("legacy UI preferences must be ignored: got %+v, want %+v", got, want)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(legacy) {
+		t.Fatalf("load must not rewrite legacy settings: %s", after)
 	}
 }
 
@@ -85,7 +121,8 @@ func TestSettingsConcurrentSaves(t *testing.T) {
 	if err != nil {
 		t.Fatalf("回读失败: %v", err)
 	}
-	want := Settings{Language: "en-US", Theme: "dark", Dialect: "mysql"}
+	// 并发请求同样归一旧手选偏好，完整写入与临时文件断言保留。
+	want := Settings{Language: "auto", Theme: "auto", Dialect: "mysql"}
 	if got != want {
 		t.Fatalf("并发写入后内容不完整：%+v", got)
 	}

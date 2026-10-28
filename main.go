@@ -80,7 +80,7 @@ func convert(ctx context.Context, raw json.RawMessage) (any, error) {
 	return internal.ConvertDialect(args.Log, dialect), nil
 }
 
-// getSettings 读取面板/窗口偏好；文件缺失或损坏时返回默认值，不阻断使用。
+// getSettings 读取页面偏好；文件缺失或损坏时返回默认值，不阻断使用。
 func getSettings(ctx context.Context, raw json.RawMessage) (any, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -89,7 +89,10 @@ func getSettings(ctx context.Context, raw json.RawMessage) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	settings, _ := internal.LoadSettings(root)
+	settings, err := internal.LoadSettings(root)
+	if err != nil {
+		return nil, &plugin.Error{Code: -32603, Message: "failed to read settings"}
+	}
 	return settings, nil
 }
 

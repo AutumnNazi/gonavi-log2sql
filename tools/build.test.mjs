@@ -78,7 +78,30 @@ function zipEntries(path) {
   return entries;
 }
 
-test('market packages omit detail panels and preserve HTML pages and windows on all five platforms', () => {
+// 产品入口仅保留标签页；内联 HTML 不再作为独立窗口文件输出。
+test('0.1.2 package declares only workbench with GoNavi 1.2.0 minimum', () => {
+  const root = fixture();
+  binaries(root, ['windows/amd64']);
+  const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts']);
+  assert.equal(result.status, 0, result.output);
+  const manifest = JSON.parse(readFileSync(join(root, 'release', 'gonavi.plugin.json'), 'utf8'));
+  assert.deepEqual({
+    version: manifest.version, minHostVersion: manifest.minHostVersion,
+    permissions: manifest.permissions, permissionNotes: Object.keys(manifest.permissionNotes),
+    pages: Object.hasOwn(manifest.contributes, 'pages'), navigation: Object.hasOwn(manifest.contributes, 'navigation'),
+    panels: Object.hasOwn(manifest.contributes, 'panels'), window: Object.hasOwn(manifest, 'window'),
+    commands: manifest.contributes.commands.map(command => command.id),
+  }, {
+    version: '0.1.2', minHostVersion: '1.2.0',
+    permissions: ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel'], permissionNotes: ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel'],
+    pages: true, navigation: false, panels: false, window: false,
+    commands: ['convert', 'getSettings', 'saveSettings'],
+  });
+  assert.match(manifest.contributes.pages[0].html.source, /window\.log2sql = engine;/);
+  assert.equal(existsSync(join(root, 'release', 'ui')), false);
+});
+
+test('market packages embed only workbench HTML on all five platforms', () => {
   const root = fixture();
   binaries(root);
   let sharedManifest;
@@ -88,21 +111,26 @@ test('market packages omit detail panels and preserve HTML pages and windows on 
     assert.equal(result.status, 0, result.output);
     const manifest = JSON.parse(readFileSync(join(root, out, 'gonavi.plugin.json'), 'utf8'));
     assert.equal(Object.hasOwn(manifest.contributes, 'panels'), false, `${platform}: market manifest must omit contributes.panels`);
-    assert.equal(manifest.version, '0.1.1');
+    assert.equal(manifest.version, '0.1.2');
+    assert.equal(manifest.minHostVersion, '1.2.0');
     assert.deepEqual(Object.keys(manifest.backend.platforms), [platform]);
     assert.deepEqual(manifest.contributes.commands.map(command => command.id), ['convert', 'getSettings', 'saveSettings']);
-    assert.ok(manifest.permissions.includes('ui.html-panel'));
-    assert.ok(manifest.permissions.includes('ui.pages'));
-    assert.deepEqual(manifest.contributes.navigation, [{ id: 'workbench-tools', title: 'MyBatis 日志转 SQL', page: 'workbench', location: 'tools', order: 0 }]);
-    assert.equal(manifest.contributes.pages.length, 1);
-    const page = manifest.contributes.pages[0];
-    assert.equal(page.id, 'workbench');
-    assert.equal(page.title, 'MyBatis 日志转 SQL');
-    assert.ok(Buffer.byteLength(page.html.source, 'utf8') <= 256 * 1024);
-    assert.match(page.html.source, /window\.log2sql = engine;/);
-    assert.doesNotMatch(page.html.source, /__ENGINE_JS__|__APP_JS__/);
-    assert.equal(manifest.window.entry, 'ui/window.html');
-    assert.equal(readFileSync(join(root, out, manifest.window.entry), 'utf8'), page.html.source);
+    assert.deepEqual(manifest.permissions, ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel']);
+    assert.deepEqual(Object.keys(manifest.permissionNotes), manifest.permissions);
+    assert.equal(Object.hasOwn(manifest.contributes, 'navigation'), false);
+    assert.equal(Object.hasOwn(manifest.contributes, 'pages'), true);
+    assert.equal(Object.hasOwn(manifest, 'window'), false);
+    assert.equal(existsSync(join(root, out, 'ui')), false);
+    const html = manifest.contributes.pages[0].html.source;
+    assert.equal(typeof html, 'string');
+    assert.ok(Buffer.byteLength(html, 'utf8') <= 256 * 1024);
+    assert.match(html, /window\.log2sql = engine;/);
+    assert.doesNotMatch(html, /__ENGINE_JS__|__APP_JS__/);
+    assert.deepEqual(manifest.contributes.pages.map(page => ({ id: page.id, title: page.title })), [{ id: 'workbench', title: 'Log2SQL' }]);
+    assert.doesNotMatch(html, /<script[^>]+src=/i);
+    assert.ok(Buffer.byteLength(JSON.stringify(manifest), 'utf8') <= 256 * 1024);
+    const { contributes, ...metadata } = manifest;
+    assert.ok(Buffer.byteLength(JSON.stringify({ ...metadata, contributes: { commands: contributes.commands } }), 'utf8') < 8 * 1024);
     const { backend, ...shared } = manifest;
     if (sharedManifest) assert.deepEqual(shared, sharedManifest);
     else sharedManifest = shared;
@@ -163,19 +191,21 @@ test('archive exceeding 64 MiB compressed fails without writing ZIP', () => {
   assert.equal(existsSync(join(root, 'large.zip')), false);
 });
 
-test('ZIP contains only root manifest, licenses, shared entry and selected binaries reproducibly', () => {
+test('ZIP contains only inline-page manifest, licenses and selected binaries reproducibly', () => {
   const root = fixture();
   binaries(root);
   const first = invoke(root, ['--out', 'release', '--platforms', platforms.join(','), '--binaries', 'artifacts', '--archive', 'plugin.zip']);
   assert.equal(first.status, 0, first.output);
   assert.equal(existsSync(join(root, 'plugin.zip')), true);
   const entries = zipEntries(join(root, 'plugin.zip'));
-  const expected = ['gonavi.plugin.json', 'LICENSE', 'THIRD_PARTY_NOTICES', 'ui/window.html', ...platforms.map(p => `bin/${p.replace('/', '-')}/plugin${p.startsWith('windows/') ? '.exe' : ''}`)].sort();
+  const expected = ['gonavi.plugin.json', 'LICENSE', 'THIRD_PARTY_NOTICES', ...platforms.map(p => `bin/${p.replace('/', '-')}/plugin${p.startsWith('windows/') ? '.exe' : ''}`)].sort();
   assert.deepEqual([...entries.keys()].sort(), expected);
   assert.ok(readFileSync(join(root, 'plugin.zip')).length < 64 * 1024 * 1024);
   const manifest = JSON.parse(entries.get('gonavi.plugin.json'));
   for (const target of Object.values(manifest.backend.platforms)) assert.ok(entries.has(target.executable));
-  assert.ok(entries.has(manifest.window.entry));
+  assert.equal(Object.hasOwn(manifest, 'window'), false);
+  assert.equal([...entries.keys()].some(name => name.endsWith('.html')), false);
+  assert.match(manifest.contributes.pages[0].html.source, /window\.log2sql = engine;/);
   const second = invoke(root, ['--out', 'second', '--platforms', [...platforms].reverse().join(','), '--binaries', 'artifacts', '--archive', 'second.zip']);
   assert.equal(second.status, 0, second.output);
   assert.deepEqual(readFileSync(join(root, 'second.zip')), readFileSync(join(root, 'plugin.zip')));
@@ -202,7 +232,11 @@ test('tested binaries form one root package with isolated platform paths and sha
   }
   assert.match(readFileSync(join(root, 'release', 'LICENSE'), 'utf8'), /Apache License[\s\S]*Version 2.0/);
   assert.equal(Object.hasOwn(manifest.contributes, 'panels'), false);
-  assert.equal(readFileSync(join(root, 'release', manifest.window.entry), 'utf8'), manifest.contributes.pages[0].html.source);
+  assert.equal(Object.hasOwn(manifest.contributes, 'pages'), true);
+  assert.equal(Object.hasOwn(manifest.contributes, 'navigation'), false);
+  assert.equal(Object.hasOwn(manifest, 'window'), false);
+  assert.match(manifest.contributes.pages[0].html.source, /window\.log2sql = engine;/);
+  assert.equal(existsSync(join(root, 'release', 'ui')), false);
   assert.equal(readFileSync(join(root, 'pkg', 'bin', 'keep.txt'), 'utf8'), 'keep');
   assert.equal(readFileSync(join(root, 'build', 'panel.preview.html'), 'utf8'), 'old preview');
 });
@@ -237,4 +271,38 @@ test('missing tested binary fails before creating output', () => {
   assert.notEqual(result.status, 0);
   assert.match(result.output, /missing binary.*bin[\\/]linux-arm64[\\/]plugin/i);
   assert.equal(existsSync(join(root, 'release')), false);
+});
+
+
+test('settings command schema follows host preferences and keeps the escape mode interface', () => {
+  const root = fixture();
+  binaries(root, ['windows/amd64']);
+  const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts']);
+  assert.equal(result.status, 0, result.output);
+  const manifest = JSON.parse(readFileSync(join(root, 'release', 'gonavi.plugin.json'), 'utf8'));
+  const commands = manifest.contributes.commands;
+  const properties = commands.find(command => command.id === 'saveSettings').inputSchema.properties;
+  assert.deepEqual(Object.keys(properties), ['language', 'theme', 'dialect']);
+  assert.deepEqual(properties.language.enum, ['auto']);
+  assert.deepEqual(properties.theme.enum, ['auto']);
+  assert.match(properties.language.description, /宿主/);
+  assert.match(properties.theme.description, /宿主/);
+  assert.deepEqual(properties.dialect.enum, ['generic', 'mysql']);
+  const convert = commands.find(command => command.id === 'convert');
+  assert.deepEqual(convert.inputSchema.properties.dialect.enum, ['generic', 'mysql']);
+  assert.equal(convert.inputSchema.properties.dialect.default, 'generic');
+  assert.match(convert.inputSchema.properties.dialect.description, /反斜杠/);
+  assert.doesNotMatch(commands.map(command => command.description).join(' '), /独立窗口|SQL 方言/);
+});
+
+test('serialized manifest cannot exceed the real market 256 KiB limit even with valid HTML', () => {
+  const root = fixture(); binaries(root, ['windows/amd64']);
+  const app = join(root, 'ui/app.js');
+  writeFileSync(app, readFileSync(app, 'utf8') + '\n//' + '\n//'.repeat(60000), 'utf8');
+  const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts']);
+  assert.equal(result.status, 1, result.output);
+  const htmlBytes = Number(result.output.match(/page html: (\d+) bytes/)?.[1]);
+  assert.ok(htmlBytes > 0 && htmlBytes <= 256 * 1024, result.output);
+  assert.match(result.output, /清单 \d+ 字节超出市场上限 262144/);
+  assert.equal(existsSync(join(root, 'release/gonavi.plugin.json')), false);
 });

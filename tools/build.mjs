@@ -93,7 +93,7 @@ for (const target of targets) {
 }
 for (const file of licensePaths) copyFileSync(resolve(root, file), resolve(pkgDir, file));
 
-// 2. 面板 + 清单：engine/app 内联进 panel.html，再嵌入 gonavi.plugin.json
+// 2. 页面 + 清单：engine/app 内联进 panel.html，仅嵌入 gonavi.plugin.json
 run('node', [
   resolve(root, 'ui/build-embed.mjs'),
   '--out', pkgDir,
@@ -103,7 +103,7 @@ run('node', [
 
 if (archivePath) {
   run('go', ['run', resolve(root, 'tools/archive/main.go'), pkgDir, archivePath,
-    'gonavi.plugin.json', 'ui/window.html', ...licensePaths, ...targets.map(target => target.relative)], { cwd: root });
+    'gonavi.plugin.json', ...licensePaths, ...targets.map(target => target.relative)], { cwd: root });
 }
 
 // 可选上游校验使用独立 root；CLI 编译依赖失败直接报错，不修改主应用。

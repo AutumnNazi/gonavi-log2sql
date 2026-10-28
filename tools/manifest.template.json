@@ -3,21 +3,22 @@
   "apiVersion": 1,
   "id": "gh-autumnnazi.log2sql",
   "name": "Log2SQL",
-  "version": "0.1.1",
+  "version": "0.1.2",
+  "minHostVersion": "1.2.0",
   "description": "粘贴 MyBatis / MyBatis-Plus 的 Preparing/Parameters DEBUG 日志，还原成可直接执行的 SQL；convert 命令同时作为 Agent 工具与 CLI 命令可用。",
   "author": "AutumnNazi",
   "license": "Apache-2.0",
   "permissions": [
     "ai.tools",
     "host.log",
-    "ui.html-panel",
-    "ui.pages"
+    "ui.pages",
+    "ui.html-panel"
   ],
   "permissionNotes": {
     "ai.tools": "把 convert 命令暴露为 Agent 工具：传入日志文本，返回回填后的 SQL，纯计算无副作用。",
     "host.log": "插件进入 running 状态时写一条诊断日志。",
-    "ui.html-panel": "在工作台标签页里渲染 HTML 日志转换页面；脚本运行在沙箱 iframe 中，只可调用声明过的宿主能力。",
-    "ui.pages": "把「MyBatis 日志转 SQL」页面挂到标题栏「插件页面」菜单，点击在工作台标签页打开。"
+    "ui.pages": "声明主工作区 workbench 标签页；通过宿主安全 plugin.invoke 调用本插件声明的设置命令。",
+    "ui.html-panel": "在 workbench 标签页渲染内联 HTML 转换界面；不请求网络、宿主存储或数据库能力。"
   },
   "backend": {
     "default": {
@@ -25,18 +26,15 @@
       "runtime": "native"
     }
   },
-  "window": {
-    "entry": "ui/window.html",
-    "title": "Log2SQL · MyBatis 日志还原",
-    "width": 900,
-    "height": 680
-  },
   "contributes": {
+    "pages": [
+      { "id": "workbench", "title": "Log2SQL", "html": { "source": "__WORKBENCH_HTML__" } }
+    ],
     "commands": [
       {
         "id": "convert",
         "title": "MyBatis 日志转 SQL",
-        "description": "供 Agent 工具与 CLI 调用的纯计算命令：在 log 字段传入 MyBatis 日志文本，返回回填后的 SQL。插件详情页的执行框需填 {\"log\":\"...\"} 形式的 JSON；日常人工转换请从标题栏「插件页面」菜单打开工作台页面粘贴日志。",
+        "description": "供 Agent 工具与 CLI 调用的纯计算命令：在 log 字段传入 MyBatis 日志文本，返回回填后的 SQL。插件详情页的执行框需填 {\"log\":\"...\"} 形式的 JSON；日常人工转换请从 SQL工具 菜单打开 Log2SQL 标签页粘贴日志，界面语言与主题始终跟随宿主。",
         "effect": "read",
         "inputSchema": {
           "type": "object",
@@ -53,7 +51,7 @@
                 "mysql"
               ],
               "default": "generic",
-              "description": "SQL 方言：generic 通用回填；mysql 额外支持字符串字面量的反斜杠转义"
+              "description": "字符串转义方式：generic 标准单引号双写；mysql 额外把反斜杠双写"
             }
           },
           "required": [
@@ -64,7 +62,7 @@
       {
         "id": "getSettings",
         "title": "读取界面设置",
-        "description": "读取 language/theme/dialect 偏好；独立窗口初始化时调用，文件缺失或损坏返回默认值。",
+        "description": "读取 MySQL 反斜杠转义偏好；language/theme 始终为 auto，跟随宿主偏好，文件缺失或损坏返回默认值。",
         "effect": "read",
         "inputSchema": {
           "type": "object",
@@ -74,7 +72,7 @@
       {
         "id": "saveSettings",
         "title": "保存界面设置",
-        "description": "把 language/theme/dialect 写入插件数据目录的 settings.json（原子写，非法取值归一到默认值）。",
+        "description": "把转义偏好写入插件数据目录的 settings.json（原子写）；language/theme 归一为 auto，旧手选值不能覆盖宿主偏好。",
         "effect": "write",
         "inputSchema": {
           "type": "object",
@@ -82,22 +80,16 @@
             "language": {
               "type": "string",
               "enum": [
-                "auto",
-                "zh-CN",
-                "zh-TW",
-                "en-US",
-                "ja-JP",
-                "de-DE",
-                "ru-RU"
-              ]
+                "auto"
+              ],
+              "description": "始终跟随宿主语言偏好，保留 auto 兼容字段"
             },
             "theme": {
               "type": "string",
               "enum": [
-                "auto",
-                "light",
-                "dark"
-              ]
+                "auto"
+              ],
+              "description": "始终跟随宿主主题偏好，保留 auto 兼容字段"
             },
             "dialect": {
               "type": "string",
@@ -108,24 +100,6 @@
             }
           }
         }
-      }
-    ],
-    "pages": [
-      {
-        "id": "workbench",
-        "title": "MyBatis 日志转 SQL",
-        "html": {
-          "source": ""
-        }
-      }
-    ],
-    "navigation": [
-      {
-        "id": "workbench-tools",
-        "title": "MyBatis 日志转 SQL",
-        "page": "workbench",
-        "location": "tools",
-        "order": 0
       }
     ]
   }

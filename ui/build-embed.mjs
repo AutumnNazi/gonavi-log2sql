@@ -1,6 +1,6 @@
-// 组装 HTML 页面并写入插件清单：
-//   ui/panel.html + ui/engine.js + ui/app.js  ->  <out>/gonavi.plugin.json
-// 页面 HTML 是清单内联文本，宿主上限 256 KiB（UTF-8 字节），超限直接失败。
+// 组装标签页内联 HTML 并写入插件清单：
+//   ui/panel.html + ui/engine.js + ui/app.js  ->  contributes.pages[0].html.source
+// 页面 HTML 与最终清单分别遵守市场的 256 KiB UTF-8 字节上限。
 // 用法：node ui/build-embed.mjs --out pkg --template tools/manifest.template.json
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -47,25 +47,27 @@ function inlineScript(code) {
   return '<script>\n' + code + '\n</script>';
 }
 
-let html = panel
+const html = panel
   .replace('<!-- __ENGINE_JS__ -->', () => inlineScript(engineSource))
   .replace('<!-- __APP_JS__ -->', () => inlineScript(appSource));
 if (html.includes('__ENGINE_JS__') || html.includes('__APP_JS__')) {
   throw new Error('panel.html 的注入占位未被替换');
 }
 
-const panelBytes = Buffer.byteLength(html, 'utf8');
+const htmlBytes = Buffer.byteLength(html, 'utf8');
 const limit = 256 * 1024;
-if (panelBytes > limit) {
-  throw new Error(`面板 HTML ${panelBytes} 字节超出宿主上限 ${limit}`);
+if (htmlBytes > limit) {
+  throw new Error(`页面 HTML ${htmlBytes} 字节超出构建上限 ${limit}`);
 }
-console.log(`panel html: ${panelBytes} bytes / ${limit} limit`);
+console.log(`page html: ${htmlBytes} bytes / ${limit} limit`);
 
 const manifest = JSON.parse(readFileSync(templatePath, 'utf8'));
-// 插件页面（工作台标签页 + 标题栏菜单）使用内联文档
-for (const page of manifest.contributes.pages ?? []) {
-  if (page.html) page.html.source = html;
+if (manifest.contributes.pages?.length !== 1 || manifest.contributes.pages[0].id !== 'workbench' ||
+    manifest.contributes.pages[0].html?.source !== '__WORKBENCH_HTML__' ||
+    Object.hasOwn(manifest.contributes, 'panels') || Object.hasOwn(manifest.contributes, 'navigation')) {
+  throw new Error('清单必须仅声明 workbench HTML 页面，不声明 panels/navigation');
 }
+manifest.contributes.pages[0].html.source = html;
 manifest.backend = { platforms: {} };
 for (const platform of platforms) {
   const [os, arch] = platform.split('/');
@@ -75,18 +77,15 @@ for (const platform of platforms) {
   };
 }
 
+const manifestJSON = JSON.stringify(manifest, null, 2) + '\n';
+const manifestBytes = Buffer.byteLength(manifestJSON, 'utf8');
+if (manifestBytes > limit) throw new Error(`清单 ${manifestBytes} 字节超出市场上限 ${limit}`);
+console.log(`manifest: ${manifestBytes} bytes / ${limit} limit`);
 mkdirSync(outDir, { recursive: true });
 const manifestPath = resolve(outDir, 'gonavi.plugin.json');
-writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+writeFileSync(manifestPath, manifestJSON, 'utf8');
 console.log(`manifest written: ${manifestPath}`);
-// 独立窗口入口：与 HTML 页面同一份内联文档，作为包内资产由 window.entry 引用。
-// 窗口里宿主注入 window.gonaviPlugin 桥接，设置持久化走 getSettings/saveSettings。
-const windowDir = resolve(outDir, 'ui');
-mkdirSync(windowDir, { recursive: true });
-const windowPath = resolve(windowDir, 'window.html');
-writeFileSync(windowPath, html, 'utf8');
-console.log(`window entry written: ${windowPath}`);
-// 面板预览文件放在包目录之外（build/），避免混进插件包污染内容摘要；
+// 本机预览文件放在包目录之外（build/），避免混进插件包污染内容摘要；
 // 浏览器直接打开即可预览 UI，无需安装进 GoNavi。
 const previewDir = resolve(root, 'build');
 mkdirSync(previewDir, { recursive: true });

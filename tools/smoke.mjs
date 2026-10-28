@@ -113,8 +113,8 @@ export async function runSmoke(binary, { args = [], timeoutMs = 5000 } = {}) {
       } catch (error) { fail(error); }
     });
 
-    await request('plugin.initialize', { apiVersion: 1, pluginId, version: '0.1.1', generation: 1,
-      config: {}, hostVersion: '1.0.0', locale: 'en-US', permissions: [] },
+    await request('plugin.initialize', { apiVersion: 1, pluginId, version: '0.1.2', generation: 1,
+      config: {}, hostVersion: '1.2.0', locale: 'en-US', permissions: ['ai.tools', 'host.log'] },
     (value) => check(value?.apiVersion === 1, 'initialize apiVersion is required'));
     const logged = new Promise((resolve, reject) => { logWaiter = { resolve, reject }; });
     send({ jsonrpc: '2.0', method: 'plugin.lifecycle', params: { event: 'running', generation: 1 } });
@@ -130,7 +130,7 @@ export async function runSmoke(binary, { args = [], timeoutMs = 5000 } = {}) {
     });
     const defaults = { language: 'auto', theme: 'auto', dialect: 'generic' };
     await invoke('getSettings', {}, (value) => check(settingsMatch(value, defaults), 'default settings mismatch'), 'getSettings(default)');
-    const changed = { language: 'en-US', theme: 'dark', dialect: 'mysql' };
+    const changed = { language: 'auto', theme: 'auto', dialect: 'mysql' };
     await invoke('saveSettings', changed, (value) => check(value?.saved === true, 'saveSettings saved is required'));
     await invoke('getSettings', {}, (value) => check(settingsMatch(value, changed), 'persisted settings mismatch'), 'getSettings(saved)');
     const persisted = JSON.parse(await readFile(join(dataRoot, 'settings.json'), 'utf8'));

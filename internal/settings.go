@@ -9,42 +9,26 @@ import (
 	"sync"
 )
 
-// Settings 是面板/窗口的界面偏好，持久化在宿主注入的插件数据目录
-// （GONAVI_PLUGIN_DATA）下的 settings.json。独立插件窗口通过
-// getSettings/saveSettings 命令读写；嵌入式 html 面板没有宿主桥接，
-// 读不到这里，只能使用内置默认值。
+// Settings 持久化在宿主注入的插件数据目录（GONAVI_PLUGIN_DATA）下。
+// 标签页通过 getSettings/saveSettings 命令读写；语言与主题保留兼容字段，始终跟随宿主。
 type Settings struct {
-	Language string `json:"language"` // auto 或六语言之一
-	Theme    string `json:"theme"`    // auto/light/dark
+	Language string `json:"language"` // 固定 auto，忽略旧手选值
+	Theme    string `json:"theme"`    // 固定 auto，忽略旧手选值
 	Dialect  string `json:"dialect"`  // generic/mysql
 }
 
 const settingsFileName = "settings.json"
 
-// 合法取值与前端词典保持一致
-var (
-	validLanguages = map[string]bool{
-		"auto": true, "zh-CN": true, "zh-TW": true,
-		"en-US": true, "ja-JP": true, "de-DE": true, "ru-RU": true,
-	}
-	validThemes   = map[string]bool{"auto": true, "light": true, "dark": true}
-	validDialects = map[string]bool{"generic": true, "mysql": true}
-)
+var validDialects = map[string]bool{"generic": true, "mysql": true}
 
-// DefaultSettings：语言跟随系统、主题跟随系统、通用方言
+// DefaultSettings：语言与主题跟随宿主，默认关闭 MySQL 反斜杠转义
 func DefaultSettings() Settings {
 	return Settings{Language: "auto", Theme: "auto", Dialect: "generic"}
 }
 
-// NormalizeSettings 把缺失或非法的取值归一到默认值，保证写盘内容可控
+// NormalizeSettings 忽略旧手选语言与主题，只保留合法的 generic/mysql 转义规则。
 func NormalizeSettings(s Settings) Settings {
 	out := DefaultSettings()
-	if validLanguages[s.Language] {
-		out.Language = s.Language
-	}
-	if validThemes[s.Theme] {
-		out.Theme = s.Theme
-	}
 	if validDialects[s.Dialect] {
 		out.Dialect = s.Dialect
 	}
@@ -68,7 +52,7 @@ func LoadSettings(dataRoot string) (Settings, error) {
 	return NormalizeSettings(s), nil
 }
 
-// settingsWriteMu 串行化落盘：getSettings/saveSettings 可能被独立窗口、Agent
+// settingsWriteMu 串行化落盘：getSettings/saveSettings 可能被标签页、Agent
 // 工具与 CLI 并发调用，固定临时文件会在并发写时互相覆盖或让 rename 失败。
 var settingsWriteMu sync.Mutex
 
