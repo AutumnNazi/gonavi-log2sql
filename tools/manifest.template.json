@@ -34,7 +34,7 @@
       {
         "id": "convert",
         "title": "MyBatis 日志转 SQL",
-        "description": "供 Agent 工具与 CLI 调用的纯计算命令：在 log 字段传入 MyBatis 日志文本，返回回填后的 SQL。插件详情页的执行框需填 {\"log\":\"...\"} 形式的 JSON；日常人工转换请从 SQL工具 菜单打开 Log2SQL 标签页粘贴日志，界面语言与主题始终跟随宿主。",
+        "description": "供 Agent 工具与 CLI 调用的纯计算命令：在 log 字段传入 MyBatis 日志文本，返回回填后的 SQL。插件详情页的执行框需填 {\"log\":\"...\"} 形式的 JSON；日常人工转换请从标题栏 AI 后方的 Log2SQL 插件入口打开标签页粘贴日志，界面语言与主题始终跟随宿主。",
         "effect": "read",
         "inputSchema": {
           "type": "object",

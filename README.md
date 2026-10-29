@@ -24,7 +24,7 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 
 | 使用面 | 入口 |
 |---|---|
-| 工作区标签页（唯一界面入口） | 顶部「SQL工具」菜单动态发现 Log2SQL `workbench` 页面；重复点击聚焦已有标签页，保留日志输入，粘贴即转换、一键复制；语言与主题始终跟随 GoNavi，仅保存 MySQL 反斜杠转义开关 |
+| 工作区标签页（唯一界面入口） | 标题栏 AI 后方的 Log2SQL 插件入口打开 `workbench` 标签页；重复点击聚焦已有标签页，保留日志输入，粘贴即转换、一键复制；语言与主题始终跟随 GoNavi，仅保存 MySQL 反斜杠转义开关 |
 | Agent 工具 | 声明 `ai.tools`，`convert` 命令进入 Agent 工具目录，可在 AI 对话中直接转换 |
 | CLI | `gonavi plugin invoke --args '{"log":"..."}' gh-autumnnazi.log2sql convert` |
 
@@ -35,11 +35,11 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 ## GoNavi 兼容版本与入口
 
 - 本版本最低宿主版本为 **GoNavi 1.2.0**（manifest `minHostVersion: "1.2.0"`），对齐当前开发版本。
-  **顶部「SQL工具」入口、页面设置桥与实时偏好同步必须使用包含本次宿主改动的开发/后续构建**；
+  **标题栏 AI 后方的插件入口、页面设置桥与实时偏好同步必须使用包含本次宿主改动的开发/后续构建**；
   仅有版本号 `1.2.0` 不代表构建已包含这些功能，不预告尚未发布的宿主版本。
 - [官方 v1.1.5](https://github.com/Syngnat/GoNavi/releases/tag/v1.1.5) 的
   [PluginCommandsPanel](https://github.com/Syngnat/GoNavi/blob/v1.1.5/frontend/src/components/pluginManager/PluginCommandsPanel.tsx#L24)
-  缺少本次安全页面 `plugin.invoke` 与 SQL工具 入口；本版本不使用旧版独立窗口能力；
+  缺少本次安全页面 `plugin.invoke` 与 AI 后方插件入口；本版本不使用旧版独立窗口能力；
   **不能宣称官方 v1.1.5 支持本版本完整页面保存设置**，已发布 `v0.1.0` / `v0.1.1` 资产不变。
 - 不要求先选中数据库；插件安装、启用并进入 running 后显示入口，未安装/卸载后不显示，
   无插件且网络失败也不会生成占位。安全模式或插件管理禁用时入口不可用；
@@ -161,7 +161,7 @@ gonavi plugin --root <插件根> enable gh-autumnnazi.log2sql
   合并恢复、mysql 方言 `\'` 字面量保留、getSettings/saveSettings 读写往返
   （settings.json 真实落盘插件数据目录）
 - 后端 stdio smoke 仅验证初始化、诊断、转换、`auto/auto/mysql` 设置落盘与关闭，不验证页面 UI。
-- 未验证：标签页的宿主实际渲染、剪贴板行为、开关持久化交互与 SQL工具 入口的原生全平台行为；
+- 未验证：标签页的宿主实际渲染、剪贴板行为、开关持久化交互与 AI 后方插件入口的原生全平台行为；
   Agent 对话中的工具调用路径。本机测试不替代五个平台对应的原生 CI 测试。
 - `0.1.2` 已作为**最新稳定版**发布（<https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.2>）：
   五个平台对应原生 CI 全部通过，单个合并 ZIP 通过固定源码
