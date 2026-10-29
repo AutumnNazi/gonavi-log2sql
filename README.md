@@ -5,7 +5,7 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 
 - 插件 ID：`gh-autumnnazi.log2sql`
 - 权限：`ai.tools`（Agent 工具）、`host.log`（启动诊断）、`ui.pages`（工作区页面）、`ui.html-panel`（内联 HTML）；不申请网络、数据库或额外凭据权限
-- 当前候选版本：`0.1.2`，仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0` / `v0.1.1` 不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
+- 当前版本：`0.1.2`（最新稳定版，2026-10-28 发布），仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0` / `v0.1.1` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
 - 许可：Apache-2.0（完整正文见 `LICENSE`，SDK 归属与 Go 标准库许可见 `THIRD_PARTY_NOTICES`）
 
 ## 功能
@@ -34,13 +34,13 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 
 ## GoNavi 兼容版本与入口
 
-- 候选包最低宿主版本为 **GoNavi 1.2.0**（manifest `minHostVersion: "1.2.0"`），对齐当前开发版本。
+- 本版本最低宿主版本为 **GoNavi 1.2.0**（manifest `minHostVersion: "1.2.0"`），对齐当前开发版本。
   **顶部「SQL工具」入口、页面设置桥与实时偏好同步必须使用包含本次宿主改动的开发/后续构建**；
   仅有版本号 `1.2.0` 不代表构建已包含这些功能，不预告尚未发布的宿主版本。
 - [官方 v1.1.5](https://github.com/Syngnat/GoNavi/releases/tag/v1.1.5) 的
   [PluginCommandsPanel](https://github.com/Syngnat/GoNavi/blob/v1.1.5/frontend/src/components/pluginManager/PluginCommandsPanel.tsx#L24)
-  缺少本次安全页面 `plugin.invoke` 与 SQL工具 入口；此候选不使用旧版独立窗口能力；
-  **不能宣称官方 v1.1.5 支持此候选完整页面保存设置**，已发布的稳定版 `0.1.1` 不变。
+  缺少本次安全页面 `plugin.invoke` 与 SQL工具 入口；本版本不使用旧版独立窗口能力；
+  **不能宣称官方 v1.1.5 支持本版本完整页面保存设置**，已发布 `v0.1.0` / `v0.1.1` 资产不变。
 - 不要求先选中数据库；插件安装、启用并进入 running 后显示入口，未安装/卸载后不显示，
   无插件且网络失败也不会生成占位。安全模式或插件管理禁用时入口不可用；
   桌面与 Web 模式均仅使用可用标签页。Agent / CLI 仍受宿主插件启用与权限策略约束。
@@ -163,10 +163,11 @@ gonavi plugin --root <插件根> enable gh-autumnnazi.log2sql
 - 后端 stdio smoke 仅验证初始化、诊断、转换、`auto/auto/mysql` 设置落盘与关闭，不验证页面 UI。
 - 未验证：标签页的宿主实际渲染、剪贴板行为、开关持久化交互与 SQL工具 入口的原生全平台行为；
   Agent 对话中的工具调用路径。本机测试不替代五个平台对应的原生 CI 测试。
-- `0.1.2` 采用 **预发布** 渠道：发布前需五个平台对应原生 CI 通过，且单个合并 ZIP 通过固定源码
-  commit `790efd9e07804cac6823851c7a8c4338f2b3fc8c` 的市场 `market.ValidatePackage`。
-  `v0.1.2` 不设为 latest、不更新市场；`0.1.1` 保留为最新稳定版。
-  宿主 CLI `valid:true` 不替代市场校验；CI 仅上传候选，由发布者验收后创建预发布 Release。
+- `0.1.2` 已作为**最新稳定版**发布（<https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.2>）：
+  五个平台对应原生 CI 全部通过，单个合并 ZIP 通过固定源码
+  commit `790efd9e07804cac6823851c7a8c4338f2b3fc8c` 的市场 `market.ValidatePackage`，
+  发布资产 SHA-256 `f91c32ccda7192468cc826ce88ac153017b677b1336a349f96f0576dbb9408e6`（11,428,636 字节）。
+  已发布 `v0.1.0` / `v0.1.1` 资产不覆盖；本次未更新插件市场登记，宿主 CLI `valid:true` 不替代市场校验。
 
 ## 目录
 
