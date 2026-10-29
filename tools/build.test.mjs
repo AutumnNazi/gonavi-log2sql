@@ -79,7 +79,7 @@ function zipEntries(path) {
 }
 
 // 产品入口仅保留标签页；内联 HTML 不再作为独立窗口文件输出。
-test('0.1.2 package declares only workbench with GoNavi 1.2.0 minimum', () => {
+test('0.1.3 package declares only workbench with GoNavi 1.2.0 minimum', () => {
   const root = fixture();
   binaries(root, ['windows/amd64']);
   const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts']);
@@ -92,7 +92,7 @@ test('0.1.2 package declares only workbench with GoNavi 1.2.0 minimum', () => {
     panels: Object.hasOwn(manifest.contributes, 'panels'), window: Object.hasOwn(manifest, 'window'),
     commands: manifest.contributes.commands.map(command => command.id),
   }, {
-    version: '0.1.2', minHostVersion: '1.2.0',
+    version: '0.1.3', minHostVersion: '1.2.0',
     permissions: ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel'], permissionNotes: ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel'],
     pages: true, navigation: false, panels: false, window: false,
     commands: ['convert', 'getSettings', 'saveSettings'],
@@ -111,7 +111,7 @@ test('market packages embed only workbench HTML on all five platforms', () => {
     assert.equal(result.status, 0, result.output);
     const manifest = JSON.parse(readFileSync(join(root, out, 'gonavi.plugin.json'), 'utf8'));
     assert.equal(Object.hasOwn(manifest.contributes, 'panels'), false, `${platform}: market manifest must omit contributes.panels`);
-    assert.equal(manifest.version, '0.1.2');
+    assert.equal(manifest.version, '0.1.3');
     assert.equal(manifest.minHostVersion, '1.2.0');
     assert.deepEqual(Object.keys(manifest.backend.platforms), [platform]);
     assert.deepEqual(manifest.contributes.commands.map(command => command.id), ['convert', 'getSettings', 'saveSettings']);

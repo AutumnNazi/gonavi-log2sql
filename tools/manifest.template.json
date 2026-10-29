@@ -3,7 +3,7 @@
   "apiVersion": 1,
   "id": "gh-autumnnazi.log2sql",
   "name": "Log2SQL",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "minHostVersion": "1.2.0",
   "description": "粘贴 MyBatis / MyBatis-Plus 的 Preparing/Parameters DEBUG 日志，还原成可直接执行的 SQL；convert 命令同时作为 Agent 工具与 CLI 命令可用。",
   "author": "AutumnNazi",
