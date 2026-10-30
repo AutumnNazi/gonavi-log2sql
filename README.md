@@ -5,7 +5,7 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 
 - 插件 ID：`gh-autumnnazi.log2sql`
 - 权限：`ai.tools`（Agent 工具）、`host.log`（启动诊断）、`ui.pages`（工作区页面）、`ui.html-panel`（内联 HTML）；不申请网络、数据库或额外凭据权限
-- 当前版本：`0.1.4`（发布候选；上一稳定版 `0.1.3`），仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0` / `v0.1.1` / `v0.1.2` / `v0.1.3` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
+- 当前版本：`0.1.4`（最新稳定版，2026-10-30 发布），仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0` / `v0.1.1` / `v0.1.2` / `v0.1.3` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
 - 许可：Apache-2.0（完整正文见 `LICENSE`，SDK 归属与 Go 标准库许可见 `THIRD_PARTY_NOTICES`）
 
 ## 功能
@@ -167,7 +167,13 @@ gonavi plugin --root <插件根> enable gh-autumnnazi.log2sql
 - 后端 stdio smoke 仅验证初始化、诊断、转换、`auto/auto/mysql` 设置落盘与关闭，不验证页面 UI。
 - 未验证：标签页的宿主实际渲染、剪贴板行为、开关持久化交互与 AI 后方插件入口的原生全平台行为；
   Agent 对话中的工具调用路径。本机测试不替代五个平台对应的原生 CI 测试。
-- `0.1.3` 已作为**最新稳定版**发布（<https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.3>）：
+- `0.1.4` 已作为**最新稳定版**发布（<https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.4>）：
+  五个平台原生测试和 stdio smoke 全部通过，候选 ZIP 的结构、图标与二进制摘要一致性检查通过；
+  CI run `41015509740` 的最终结论为 failure，仅固定旧市场校验步骤报 `unknown manifest field "icon"`。
+  本次仅发布 GitHub Release，未登记插件市场，不宣称通过市场上架校验。
+  发布资产 SHA-256 `c599b076e24cf4b18d8fd0f071a7e781bb7052d5091dee7aeb1e4cf63e232d08`（11,437,343 字节），包内包含深浅主题通用蓝色透明图标。
+  已发布 `v0.1.0` / `v0.1.1` / `v0.1.2` / `v0.1.3` 资产不覆盖。
+- `0.1.3` 已发布（<https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.3>）：
   五个平台对应原生 CI 全部通过，单个合并 ZIP 通过固定源码
   commit `790efd9e07804cac6823851c7a8c4338f2b3fc8c` 的市场 `market.ValidatePackage`，
   发布资产 SHA-256 `b14251e8872a18ffb92ed11269dc96f4fe9283394fe38b4a41da3f7b11c3a040`（11,428,652 字节）。
