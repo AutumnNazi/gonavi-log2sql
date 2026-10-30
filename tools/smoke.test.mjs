@@ -22,7 +22,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   }
   let result = {};
   if (request.method === 'plugin.initialize') {
-    if (mode === 'compatible' && (request.params.version !== '0.1.3' || request.params.hostVersion !== '1.2.0')) {
+    if (mode === 'compatible' && (request.params.version !== '0.1.4' || request.params.hostVersion !== '1.2.0')) {
       respond({ jsonrpc: '2.0', id: request.id, error: { code: -32602, message: 'unsupported initialize versions' } });
       return;
     }
@@ -82,7 +82,7 @@ test('smoke validates the full flow and cleans its isolated settings directory',
   assert.deepEqual(leaked, []);
 });
 
-test('smoke sends plugin 0.1.3 and the minimum supported host version during initialization', async () => {
+test('smoke sends plugin 0.1.4 and the minimum supported host version during initialization', async () => {
   const result = await runSmoke(process.argv[0], options('compatible'));
   assert.equal(result.exitCode, 0);
   assert.equal(result.flow[0], 'plugin.initialize');

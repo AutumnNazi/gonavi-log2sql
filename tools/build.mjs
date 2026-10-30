@@ -48,6 +48,23 @@ if (flag('--check') && !val('--gonavi', process.env.GONAVI_ROOT || '')) {
   throw new Error('--check requires --gonavi <GoNavi checkout> or GONAVI_ROOT');
 }
 const licensePaths = ['LICENSE', 'THIRD_PARTY_NOTICES'];
+const template = JSON.parse(readFileSync(resolve(root, 'tools/manifest.template.json'), 'utf8'));
+const icon = template.icon === undefined ? '' : template.icon;
+if (typeof icon !== 'string') throw new Error('invalid package icon path');
+const iconPaths = icon ? [icon] : [];
+if (icon) {
+  const parts = icon.split('/');
+  if (Buffer.byteLength(icon, 'utf8') > 256 || !/^[A-Za-z0-9][A-Za-z0-9._/-]*\.(png|jpe?g|webp|gif)$/i.test(icon) ||
+      parts.some(part => !part || part === '.' || part === '..')) throw new Error('invalid package icon path');
+  for (let i = 1; i <= parts.length; i++) {
+    const source = resolve(root, ...parts.slice(0, i));
+    if (!existsSync(source)) throw new Error('missing package icon: ' + source);
+    const stat = lstatSync(source);
+    if (stat.isSymbolicLink() || (i === parts.length
+      ? !stat.isFile() || stat.nlink !== 1 || stat.size === 0 || stat.size > 64 * 1024
+      : !stat.isDirectory())) throw new Error('invalid package icon: ' + source);
+  }
+}
 for (const file of licensePaths) {
   if (!existsSync(resolve(root, file))) throw new Error('missing license: ' + file);
 }
@@ -91,7 +108,11 @@ for (const target of targets) {
   }
   chmodSync(destination, 0o755);
 }
-for (const file of licensePaths) copyFileSync(resolve(root, file), resolve(pkgDir, file));
+for (const file of [...licensePaths, ...iconPaths]) {
+  const destination = resolve(pkgDir, file);
+  mkdirSync(dirname(destination), { recursive: true });
+  copyFileSync(resolve(root, file), destination);
+}
 
 // 2. 页面 + 清单：engine/app 内联进 panel.html，仅嵌入 gonavi.plugin.json
 run('node', [
@@ -103,7 +124,7 @@ run('node', [
 
 if (archivePath) {
   run('go', ['run', resolve(root, 'tools/archive/main.go'), pkgDir, archivePath,
-    'gonavi.plugin.json', ...licensePaths, ...targets.map(target => target.relative)], { cwd: root });
+    'gonavi.plugin.json', ...licensePaths, ...iconPaths, ...targets.map(target => target.relative)], { cwd: root });
 }
 
 // 可选上游校验使用独立 root；CLI 编译依赖失败直接报错，不修改主应用。

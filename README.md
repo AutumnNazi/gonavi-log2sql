@@ -5,7 +5,7 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 
 - 插件 ID：`gh-autumnnazi.log2sql`
 - 权限：`ai.tools`（Agent 工具）、`host.log`（启动诊断）、`ui.pages`（工作区页面）、`ui.html-panel`（内联 HTML）；不申请网络、数据库或额外凭据权限
-- 当前版本：`0.1.3`（最新稳定版，2026-10-29 发布），仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0` / `v0.1.1` / `v0.1.2` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
+- 当前版本：`0.1.4`（发布候选；上一稳定版 `0.1.3`），仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0` / `v0.1.1` / `v0.1.2` / `v0.1.3` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
 - 许可：Apache-2.0（完整正文见 `LICENSE`，SDK 归属与 Go 标准库许可见 `THIRD_PARTY_NOTICES`）
 
 ## 功能
@@ -28,9 +28,13 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 | Agent 工具 | 声明 `ai.tools`，`convert` 命令进入 Agent 工具目录，可在 AI 对话中直接转换 |
 | CLI | `gonavi plugin invoke --args '{"log":"..."}' gh-autumnnazi.log2sql convert` |
 
-`0.1.3` 仅声明一个 `contributes.pages` 页面 `workbench`，不声明 `panels` 或 `navigation`，
+`0.1.4` 仅声明一个 `contributes.pages` 页面 `workbench`，不声明 `panels` 或 `navigation`，
 不恢复旧顶部插件页面菜单，不声明 `window`，包内没有 `ui/window.html` 或其他 HTML 文件；界面仅内联到页面 `html.source`。
 插件详情中的 `convert` 命令执行框仍需输入 `{"log":"..."}` 形式的 JSON。
+
+`0.1.4` 新增包内透明图标 `icons/log2sql.png`，采用深浅主题通用蓝色；图标的管理卡片与顶部按钮显示依赖宿主构建支持。转换、设置和页面权限保持不变。
+
+`0.1.4` 本次仅发布 GitHub Release，不登记插件市场。发布依据是五个平台原生测试和安装包结构、图标与二进制一致性检查；固定的旧市场校验器尚不接受顶层 `icon`，该校验保留并如实记录失败，不将候选称为通过市场上架校验。
 
 ## GoNavi 兼容版本与入口
 

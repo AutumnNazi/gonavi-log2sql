@@ -31,6 +31,7 @@ function fixture() {
     cpSync(join(source, file), join(root, file));
   }
   if (existsSync(join(source, 'tools/archive'))) cpSync(join(source, 'tools/archive'), join(root, 'tools/archive'), { recursive: true });
+  if (existsSync(join(source, 'icons'))) cpSync(join(source, 'icons'), join(root, 'icons'), { recursive: true });
   for (const file of ['LICENSE', 'THIRD_PARTY_NOTICES']) {
     if (existsSync(join(source, file))) cpSync(join(source, file), join(root, file));
   }
@@ -79,7 +80,7 @@ function zipEntries(path) {
 }
 
 // 产品入口仅保留标签页；内联 HTML 不再作为独立窗口文件输出。
-test('0.1.3 package declares only workbench with GoNavi 1.2.0 minimum', () => {
+test('0.1.4 package declares only workbench with GoNavi 1.2.0 minimum', () => {
   const root = fixture();
   binaries(root, ['windows/amd64']);
   const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts']);
@@ -92,7 +93,7 @@ test('0.1.3 package declares only workbench with GoNavi 1.2.0 minimum', () => {
     panels: Object.hasOwn(manifest.contributes, 'panels'), window: Object.hasOwn(manifest, 'window'),
     commands: manifest.contributes.commands.map(command => command.id),
   }, {
-    version: '0.1.3', minHostVersion: '1.2.0',
+    version: '0.1.4', minHostVersion: '1.2.0',
     permissions: ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel'], permissionNotes: ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel'],
     pages: true, navigation: false, panels: false, window: false,
     commands: ['convert', 'getSettings', 'saveSettings'],
@@ -111,7 +112,7 @@ test('market packages embed only workbench HTML on all five platforms', () => {
     assert.equal(result.status, 0, result.output);
     const manifest = JSON.parse(readFileSync(join(root, out, 'gonavi.plugin.json'), 'utf8'));
     assert.equal(Object.hasOwn(manifest.contributes, 'panels'), false, `${platform}: market manifest must omit contributes.panels`);
-    assert.equal(manifest.version, '0.1.3');
+    assert.equal(manifest.version, '0.1.4');
     assert.equal(manifest.minHostVersion, '1.2.0');
     assert.deepEqual(Object.keys(manifest.backend.platforms), [platform]);
     assert.deepEqual(manifest.contributes.commands.map(command => command.id), ['convert', 'getSettings', 'saveSettings']);
@@ -198,7 +199,7 @@ test('ZIP contains only inline-page manifest, licenses and selected binaries rep
   assert.equal(first.status, 0, first.output);
   assert.equal(existsSync(join(root, 'plugin.zip')), true);
   const entries = zipEntries(join(root, 'plugin.zip'));
-  const expected = ['gonavi.plugin.json', 'LICENSE', 'THIRD_PARTY_NOTICES', ...platforms.map(p => `bin/${p.replace('/', '-')}/plugin${p.startsWith('windows/') ? '.exe' : ''}`)].sort();
+  const expected = ['gonavi.plugin.json', 'LICENSE', 'THIRD_PARTY_NOTICES', 'icons/log2sql.png', ...platforms.map(p => `bin/${p.replace('/', '-')}/plugin${p.startsWith('windows/') ? '.exe' : ''}`)].sort();
   assert.deepEqual([...entries.keys()].sort(), expected);
   assert.ok(readFileSync(join(root, 'plugin.zip')).length < 64 * 1024 * 1024);
   const manifest = JSON.parse(entries.get('gonavi.plugin.json'));
@@ -305,4 +306,81 @@ test('serialized manifest cannot exceed the real market 256 KiB limit even with 
   assert.ok(htmlBytes > 0 && htmlBytes <= 256 * 1024, result.output);
   assert.match(result.output, /清单 \d+ 字节超出市场上限 262144/);
   assert.equal(existsSync(join(root, 'release/gonavi.plugin.json')), false);
+});
+
+
+test('package icon is copied into the output and ZIP without changing its bytes', () => {
+  const root = fixture();
+  binaries(root, ['windows/amd64']);
+  mkdirSync(join(root, 'icons'), { recursive: true });
+  const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMwqXjLAAAEFwGaDHJA1QAAAABJRU5ErkJggg==', 'base64');
+  writeFileSync(join(root, 'icons/log2sql.png'), image);
+  const templatePath = join(root, 'tools/manifest.template.json');
+  const template = JSON.parse(readFileSync(templatePath, 'utf8'));
+  template.icon = 'icons/log2sql.png';
+  writeFileSync(templatePath, JSON.stringify(template));
+  const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts', '--archive', 'plugin.zip']);
+  assert.equal(result.status, 0, result.output);
+  assert.ok(existsSync(join(root, 'release/icons/log2sql.png')), 'declared package icon must be copied');
+  assert.deepEqual(readFileSync(join(root, 'release/icons/log2sql.png')), image);
+  const entries = zipEntries(join(root, 'plugin.zip'));
+  assert.deepEqual(entries.get('icons/log2sql.png'), image);
+  assert.equal(JSON.parse(entries.get('gonavi.plugin.json')).icon, 'icons/log2sql.png');
+});
+
+test('package icon rejects traversal and oversized images before creating output', () => {
+  for (const variant of ['traversal', 'oversized']) {
+    const root = fixture();
+    binaries(root, ['windows/amd64']);
+    mkdirSync(join(root, 'icons'), { recursive: true });
+    const templatePath = join(root, 'tools/manifest.template.json');
+    const template = JSON.parse(readFileSync(templatePath, 'utf8'));
+    template.icon = variant === 'traversal' ? '../outside.png' : 'icons/log2sql.png';
+    writeFileSync(templatePath, JSON.stringify(template));
+    writeFileSync(join(root, 'icons/log2sql.png'), Buffer.alloc(64 * 1024 + 1));
+    const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts']);
+    assert.notEqual(result.status, 0, variant + ': invalid package icon must fail');
+    assert.equal(existsSync(join(root, 'release')), false);
+    assert.match(result.output, /icon/i);
+  }
+});
+
+
+test('package icon rejects null metadata before output creation', () => {
+  const root = fixture();
+  binaries(root, ['windows/amd64']);
+  const templatePath = join(root, 'tools/manifest.template.json');
+  const template = JSON.parse(readFileSync(templatePath, 'utf8'));
+  template.icon = null;
+  writeFileSync(templatePath, JSON.stringify(template));
+  const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts']);
+  assert.notEqual(result.status, 0, 'null icon must not silently pass through into the host manifest');
+  assert.match(result.output, /icon/i);
+  assert.equal(existsSync(join(root, 'release')), false);
+});
+
+test('packages without an icon retain the existing build behavior', () => {
+  const root = fixture();
+  binaries(root, ['windows/amd64']);
+  const templatePath = join(root, 'tools/manifest.template.json');
+  const template = JSON.parse(readFileSync(templatePath, 'utf8'));
+  delete template.icon;
+  writeFileSync(templatePath, JSON.stringify(template));
+  const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts', '--archive', 'plugin.zip']);
+  assert.equal(result.status, 0, result.output);
+  const entries = zipEntries(join(root, 'plugin.zip'));
+  assert.equal(Object.hasOwn(JSON.parse(entries.get('gonavi.plugin.json')), 'icon'), false);
+  assert.equal(entries.has('icons/log2sql.png'), false);
+});
+
+
+test('release candidate is uploaded after package verification and before the retained market gate', () => {
+  const workflow = readFileSync(join(source, '.github/workflows/release.yml'), 'utf8');
+  const verification = workflow.indexOf('      - name: Verify the only ZIP, platform manifest and binary digests');
+  const upload = workflow.indexOf('      - name: Upload the single ZIP for coordinator review');
+  const market = workflow.indexOf('      - name: Gate the candidate with real market.ValidatePackage');
+  assert.ok(verification >= 0 && verification < upload && upload < market);
+  assert.match(workflow, /needs: native/);
+  assert.match(workflow, /node tools\/market-check\.mjs "\$ARCHIVE"/);
+  assert.doesNotMatch(workflow, /continue-on-error/);
 });
