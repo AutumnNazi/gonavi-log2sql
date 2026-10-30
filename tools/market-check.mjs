@@ -112,7 +112,7 @@ export async function runMarketCheck(zip, { source, go = process.env.GO_BINARY |
     return result;
   } finally {
     check(await realpath(root) === ownedRoot && dirname(ownedRoot) === temporaryRoot && basename(ownedRoot).startsWith(prefix), 'refusing unsafe temporary cleanup');
-    await rm(ownedRoot, { recursive: true, force: true });
+    await rm(ownedRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 }
 

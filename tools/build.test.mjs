@@ -374,13 +374,14 @@ test('packages without an icon retain the existing build behavior', () => {
 });
 
 
-test('release candidate is uploaded after package verification and before the retained market gate', () => {
+test('release candidate requires real pinned host installation validation before upload', () => {
   const workflow = readFileSync(join(source, '.github/workflows/release.yml'), 'utf8');
   const verification = workflow.indexOf('      - name: Verify the only ZIP, platform manifest and binary digests');
+  const host = workflow.indexOf('      - name: Validate directory and ZIP with the pinned host installer');
   const upload = workflow.indexOf('      - name: Upload the single ZIP for coordinator review');
-  const market = workflow.indexOf('      - name: Gate the candidate with real market.ValidatePackage');
-  assert.ok(verification >= 0 && verification < upload && upload < market);
+  assert.ok(verification >= 0 && verification < host && host < upload);
   assert.match(workflow, /needs: native/);
-  assert.match(workflow, /node tools\/market-check\.mjs "\$ARCHIVE"/);
-  assert.doesNotMatch(workflow, /continue-on-error/);
+  assert.match(workflow, /ref: 6c66942637ec573e34e564b94dd6296966c4095e/);
+  assert.match(workflow, /node tools\/host-check\.mjs "\$ARCHIVE" --source build\/host-validator-source --directory build\/release\/pkg/);
+  assert.doesNotMatch(workflow, /continue-on-error|node tools\/market-check\.mjs|sparse-checkout:/);
 });

@@ -23,7 +23,7 @@ test('missing market source fails without changing the ZIP or leaking temporary 
     assert.deepEqual(await readdir(root), ['package.zip']);
   } finally {
     assert.equal(await realpath(root), owned);
-    await rm(owned, { recursive: true, force: true });
+    await rm(owned, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 });
 
@@ -86,6 +86,6 @@ test('calls the supplied Go validator and reports its exact package hash', async
     assert.deepEqual((await readdir(parent)).filter((name) => name.startsWith('gonavi-log2sql-market-check-')), before);
   } finally {
     assert.equal(await realpath(root), owned);
-    await rm(owned, { recursive: true, force: true });
+    await rm(owned, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 });

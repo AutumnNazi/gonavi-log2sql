@@ -123,13 +123,12 @@ jobs:
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version: '1.26.1'
-      - name: Checkout the pinned market validator source (separate from this plugin)
+      - name: Checkout the pinned host validator source (separate from this plugin)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: Syngnat/GoNavi
-          ref: 790efd9e07804cac6823851c7a8c4338f2b3fc8c
-          path: build/market-validator-source
-          sparse-checkout: internal/market
+          ref: 6c66942637ec573e34e564b94dd6296966c4095e
+          path: build/host-validator-source
           persist-credentials: false
       - name: Download all successful native binaries
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -193,6 +192,11 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
               summary.write(f'Native tests passed on all five platforms. No public release was created.\n\nSHA256: `{digest}`  `{archive.name}`\n')
           PY
+      - name: Validate directory and ZIP with the pinned host installer
+        run: |
+          test "$(git -C build/host-validator-source rev-parse HEAD)" = "6c66942637ec573e34e564b94dd6296966c4095e"
+          node tools/host-check.mjs "$ARCHIVE" --source build/host-validator-source --directory build/release/pkg
+          printf '%s\n' 'Host directory and ZIP installation and icon reads passed using Syngnat/GoNavi commit 6c66942637ec573e34e564b94dd6296966c4095e. This is not a marketplace admission check.' >> "$GITHUB_STEP_SUMMARY"
       - name: Upload the single ZIP for coordinator review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -200,8 +204,3 @@ jobs:
           path: ${{ env.ARCHIVE }}
           if-no-files-found: error
           retention-days: 14
-      - name: Gate the candidate with real market.ValidatePackage (not the SDK host CLI)
-        run: |
-          test "$(git -C build/market-validator-source rev-parse HEAD)" = "790efd9e07804cac6823851c7a8c4338f2b3fc8c"
-          node tools/market-check.mjs "$ARCHIVE" --source build/market-validator-source
-          printf '%s\n' 'market.ValidatePackage passed using Syngnat/GoNavi commit 790efd9e07804cac6823851c7a8c4338f2b3fc8c. No public release was created.' >> "$GITHUB_STEP_SUMMARY"
