@@ -80,7 +80,7 @@ function zipEntries(path) {
 }
 
 // 产品入口仅保留标签页；内联 HTML 不再作为独立窗口文件输出。
-test('0.1.4 package declares only workbench with GoNavi 1.2.0 minimum', () => {
+test('0.1.5 package declares workbench plus its title-bar navigation with GoNavi 1.2.0 minimum', () => {
   const root = fixture();
   binaries(root, ['windows/amd64']);
   const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts']);
@@ -93,11 +93,15 @@ test('0.1.4 package declares only workbench with GoNavi 1.2.0 minimum', () => {
     panels: Object.hasOwn(manifest.contributes, 'panels'), window: Object.hasOwn(manifest, 'window'),
     commands: manifest.contributes.commands.map(command => command.id),
   }, {
-    version: '0.1.4', minHostVersion: '1.2.0',
+    version: '0.1.5', minHostVersion: '1.2.0',
     permissions: ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel'], permissionNotes: ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel'],
-    pages: true, navigation: false, panels: false, window: false,
+    pages: true, navigation: true, panels: false, window: false,
     commands: ['convert', 'getSettings', 'saveSettings'],
   });
+  assert.deepEqual(manifest.contributes.navigation, [
+    { id: 'workbench-tools', title: 'Log2SQL', page: 'workbench', location: 'tools', order: 0 },
+  ]);
+  assert.equal(manifest.icon, 'icons/log2sql.png');
   assert.match(manifest.contributes.pages[0].html.source, /window\.log2sql = engine;/);
   assert.equal(existsSync(join(root, 'release', 'ui')), false);
 });
@@ -112,13 +116,16 @@ test('market packages embed only workbench HTML on all five platforms', () => {
     assert.equal(result.status, 0, result.output);
     const manifest = JSON.parse(readFileSync(join(root, out, 'gonavi.plugin.json'), 'utf8'));
     assert.equal(Object.hasOwn(manifest.contributes, 'panels'), false, `${platform}: market manifest must omit contributes.panels`);
-    assert.equal(manifest.version, '0.1.4');
+    assert.equal(manifest.version, '0.1.5');
     assert.equal(manifest.minHostVersion, '1.2.0');
     assert.deepEqual(Object.keys(manifest.backend.platforms), [platform]);
     assert.deepEqual(manifest.contributes.commands.map(command => command.id), ['convert', 'getSettings', 'saveSettings']);
     assert.deepEqual(manifest.permissions, ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel']);
     assert.deepEqual(Object.keys(manifest.permissionNotes), manifest.permissions);
-    assert.equal(Object.hasOwn(manifest.contributes, 'navigation'), false);
+    assert.deepEqual(manifest.contributes.navigation, [
+      { id: 'workbench-tools', title: 'Log2SQL', page: 'workbench', location: 'tools', order: 0 },
+    ]);
+    assert.equal(manifest.icon, 'icons/log2sql.png');
     assert.equal(Object.hasOwn(manifest.contributes, 'pages'), true);
     assert.equal(Object.hasOwn(manifest, 'window'), false);
     assert.equal(existsSync(join(root, out, 'ui')), false);
@@ -234,7 +241,9 @@ test('tested binaries form one root package with isolated platform paths and sha
   assert.match(readFileSync(join(root, 'release', 'LICENSE'), 'utf8'), /Apache License[\s\S]*Version 2.0/);
   assert.equal(Object.hasOwn(manifest.contributes, 'panels'), false);
   assert.equal(Object.hasOwn(manifest.contributes, 'pages'), true);
-  assert.equal(Object.hasOwn(manifest.contributes, 'navigation'), false);
+  assert.deepEqual(manifest.contributes.navigation, [
+    { id: 'workbench-tools', title: 'Log2SQL', page: 'workbench', location: 'tools', order: 0 },
+  ]);
   assert.equal(Object.hasOwn(manifest, 'window'), false);
   assert.match(manifest.contributes.pages[0].html.source, /window\.log2sql = engine;/);
   assert.equal(existsSync(join(root, 'release', 'ui')), false);
@@ -337,11 +346,27 @@ test('package icon rejects traversal and oversized images before creating output
     const template = JSON.parse(readFileSync(templatePath, 'utf8'));
     template.icon = variant === 'traversal' ? '../outside.png' : 'icons/log2sql.png';
     writeFileSync(templatePath, JSON.stringify(template));
-    writeFileSync(join(root, 'icons/log2sql.png'), Buffer.alloc(64 * 1024 + 1));
+    writeFileSync(join(root, 'icons/log2sql.png'), Buffer.alloc(5 * 1024 * 1024 + 1));
     const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts']);
     assert.notEqual(result.status, 0, variant + ': invalid package icon must fail');
     assert.equal(existsSync(join(root, 'release')), false);
     assert.match(result.output, /icon/i);
+  }
+});
+
+test('permission notes the host would refuse fail the build before output', () => {
+  for (const [label, note] of [['oversized', 'x'.repeat(161)], ['angle', 'note <b>html</b>'], ['unknown key', 'ok note']]) {
+    const root = fixture();
+    binaries(root, ['windows/amd64']);
+    const templatePath = join(root, 'tools/manifest.template.json');
+    const template = JSON.parse(readFileSync(templatePath, 'utf8'));
+    if (label === 'unknown key') template.permissionNotes['host.undeclared'] = note;
+    else template.permissionNotes['ui.pages'] = note;
+    writeFileSync(templatePath, JSON.stringify(template));
+    const result = invoke(root, ['--out', 'release', '--platforms', 'windows/amd64', '--binaries', 'artifacts']);
+    assert.notEqual(result.status, 0, label + ': invalid permission note must fail');
+    assert.match(result.output, /permission note/i);
+    assert.equal(existsSync(join(root, 'release')), false);
   }
 });
 
@@ -381,7 +406,7 @@ test('release candidate requires real pinned host installation validation before
   const upload = workflow.indexOf('      - name: Upload the single ZIP for coordinator review');
   assert.ok(verification >= 0 && verification < host && host < upload);
   assert.match(workflow, /needs: native/);
-  assert.match(workflow, /ref: 6c66942637ec573e34e564b94dd6296966c4095e/);
+  assert.match(workflow, /ref: 5d4402903ce1f5635949c17a9341e4bf1e5a8d70/);
   assert.match(workflow, /node tools\/host-check\.mjs "\$ARCHIVE" --source build\/host-validator-source --directory build\/release\/pkg/);
   assert.doesNotMatch(workflow, /continue-on-error|node tools\/market-check\.mjs|sparse-checkout:/);
 });

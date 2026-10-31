@@ -5,7 +5,7 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 
 - 插件 ID：`gh-autumnnazi.log2sql`
 - 权限：`ai.tools`（Agent 工具）、`host.log`（启动诊断）、`ui.pages`（工作区页面）、`ui.html-panel`（内联 HTML）；不申请网络、数据库或额外凭据权限
-- 当前版本：`0.1.4`（最新稳定版，2026-10-30 发布），仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0` / `v0.1.1` / `v0.1.2` / `v0.1.3` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
+- 当前版本：`0.1.5`（补回标题栏入口、对齐宿主 `5d4402903` 契约），仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0`–`v0.1.4` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
 - 许可：Apache-2.0（完整正文见 `LICENSE`，SDK 归属与 Go 标准库许可见 `THIRD_PARTY_NOTICES`）
 
 ## 功能
@@ -28,24 +28,30 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 | Agent 工具 | 声明 `ai.tools`，`convert` 命令进入 Agent 工具目录，可在 AI 对话中直接转换 |
 | CLI | `gonavi plugin invoke --args '{"log":"..."}' gh-autumnnazi.log2sql convert` |
 
-`0.1.4` 仅声明一个 `contributes.pages` 页面 `workbench`，不声明 `panels` 或 `navigation`，
-不恢复旧顶部插件页面菜单，不声明 `window`，包内没有 `ui/window.html` 或其他 HTML 文件；界面仅内联到页面 `html.source`。
+`contributes.pages` 只提供页面内容，标题栏入口必须由 `contributes.navigation`（`location: "tools"`，v1 唯一取值）
+单独声明：宿主自 `4a357e453`「顶栏只显示插件显式声明的导航入口」起不再按 `pages` / `window` 推断，
+`0.1.2`–`0.1.4` 删掉 navigation 后顶栏按钮随之消失，本构建已补回指向 `workbench` 的 `location: "tools"` 入口。
+不声明 `panels`，不声明 `window`，包内没有 `ui/window.html` 或其他 HTML 文件；界面仅内联到页面 `html.source`。
 插件详情中的 `convert` 命令执行框仍需输入 `{"log":"..."}` 形式的 JSON。
 
-`0.1.4` 新增包内透明图标 `icons/log2sql.png`，采用深浅主题通用蓝色；图标的管理卡片与顶部按钮显示依赖宿主构建支持。转换、设置和页面权限保持不变。
+包内透明图标 `icons/log2sql.png`（256×256 PNG，深浅主题通用蓝色）同时供插件卡片与顶栏按钮使用：宿主自
+`b42aea971` / `6c6694263` 起顶栏按钮显示各插件自己的栅格图标——只读取 manifest `icon` 指向的包内栅格文件，
+按内容嗅探判定 mime（png / jpeg / webp / gif，禁 SVG），路径须为包内相对路径且不超过 256 字节；
+字节上限自 `36260ba77` 起由 64 KiB 放宽到 5 MiB，读取上限同步提到 8 MiB（`internal/plugin/manager_assets.go`）。
+缺失、超限或浏览器解码失败时回退宿主默认图标。转换、设置和页面权限保持不变。
 
-`0.1.4` 本次仅发布 GitHub Release，不登记插件市场。发布候选须通过五个平台原生测试、安装包结构与摘要检查，以及固定宿主源码 `6c66942637ec573e34e564b94dd6296966c4095e` 的真实目录/ZIP 隔离安装和图标读取校验。此宿主校验不等同于市场上架校验；独立市场契约未同步顶层 `icon` 时，不宣称通过市场上架校验。
+`0.1.5` 本次仅发布 GitHub Release，不登记插件市场；本次补回被 `0.1.2` 删掉的 `contributes.navigation`（顶栏入口恢复），并把图标上限（5 MiB）、说明长度（160 字节）与校验基线对齐宿主现行契约。发布候选须通过五个平台原生测试、安装包结构与摘要检查，以及固定宿主源码 `5d4402903ce1f5635949c17a9341e4bf1e5a8d70`（2026-10-31 的 dev，含图标上限放宽与单一图标校验实现）的真实目录/ZIP 隔离安装和图标读取校验。此宿主校验不等同于市场上架校验；独立市场契约未同步顶层 `icon` 时，不宣称通过市场上架校验。
 
 ## GoNavi 兼容版本与入口
 
 - 本版本最低宿主版本为 **GoNavi 1.2.0**（manifest `minHostVersion: "1.2.0"`），对齐当前开发版本。
-  **标题栏 AI 后方的插件入口、页面设置桥与实时偏好同步必须使用包含本次宿主改动的开发/后续构建**；
+  **标题栏 AI 后方的插件入口（`contributes.navigation` + `location: "tools"`）、页面设置桥与实时偏好同步必须使用包含本次宿主改动的开发/后续构建**；
   仅有版本号 `1.2.0` 不代表构建已包含这些功能，不预告尚未发布的宿主版本。
 - [官方 v1.1.5](https://github.com/Syngnat/GoNavi/releases/tag/v1.1.5) 的
   [PluginCommandsPanel](https://github.com/Syngnat/GoNavi/blob/v1.1.5/frontend/src/components/pluginManager/PluginCommandsPanel.tsx#L24)
-  缺少本次安全页面 `plugin.invoke` 与 AI 后方插件入口；本版本不使用旧版独立窗口能力；
+  缺少本次安全页面 `plugin.invoke` 与 navigation 驱动的 AI 后方插件入口；本版本不使用旧版独立窗口能力；
   **不能宣称官方 v1.1.5 支持本版本完整页面保存设置**，已发布 `v0.1.0` / `v0.1.1` 资产不变。
-- 不要求先选中数据库；插件安装、启用并进入 running 后显示入口，未安装/卸载后不显示，
+- 不要求先选中数据库；插件安装、启用并进入 running 且清单声明了 navigation 后显示入口，未安装/卸载后不显示，
   无插件且网络失败也不会生成占位。安全模式或插件管理禁用时入口不可用；
   桌面与 Web 模式均仅使用可用标签页。Agent / CLI 仍受宿主插件启用与权限策略约束。
 
@@ -165,7 +171,7 @@ gonavi plugin --root <插件根> enable gh-autumnnazi.log2sql
   合并恢复、mysql 方言 `\'` 字面量保留、getSettings/saveSettings 读写往返
   （settings.json 真实落盘插件数据目录）
 - 后端 stdio smoke 仅验证初始化、诊断、转换、`auto/auto/mysql` 设置落盘与关闭，不验证页面 UI。
-- 未验证：标签页的宿主实际渲染、剪贴板行为、开关持久化交互与 AI 后方插件入口的原生全平台行为；
+- 未验证：标签页的宿主实际渲染、剪贴板行为、开关持久化交互与 AI 后方插件入口的原生全平台行为（宿主侧只验证到「安装成功 + 图标可回读为栅格 data URL」，未点开界面）；
   Agent 对话中的工具调用路径。本机测试不替代五个平台对应的原生 CI 测试。
 - `0.1.4` 已作为**最新稳定版**发布（<https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.4>）：
   五个平台原生测试和 stdio smoke 全部通过，候选 ZIP 的结构、图标与二进制摘要一致性检查通过；

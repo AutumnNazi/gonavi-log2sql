@@ -112,7 +112,7 @@ jobs:
         shell: bash
     env:
       PLATFORMS: windows/amd64,linux/amd64,linux/arm64,darwin/amd64,darwin/arm64
-      ARCHIVE: build/release/gh-autumnnazi.log2sql-0.1.4.zip
+      ARCHIVE: build/release/gh-autumnnazi.log2sql-0.1.5.zip
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -127,7 +127,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: Syngnat/GoNavi
-          ref: 6c66942637ec573e34e564b94dd6296966c4095e
+          ref: 5d4402903ce1f5635949c17a9341e4bf1e5a8d70
           path: build/host-validator-source
           persist-credentials: false
       - name: Download all successful native binaries
@@ -154,14 +154,17 @@ jobs:
               assert 'gonavi.plugin.json' in names and 'LICENSE' in names, 'missing root release files'
               assert package.testzip() is None, 'corrupt ZIP entry'
               manifest = json.loads(package.read('gonavi.plugin.json').decode('utf-8'))
-              assert manifest['id'] == 'gh-autumnnazi.log2sql' and manifest['version'] == '0.1.4'
+              assert manifest['id'] == 'gh-autumnnazi.log2sql' and manifest['version'] == '0.1.5'
               assert manifest['minHostVersion'] == '1.2.0', 'minimum host version mismatch'
               assert manifest['icon'] == 'icons/log2sql.png', 'plugin icon path mismatch'
               icon = package.read(manifest['icon'])
-              assert 0 < len(icon) <= 64 * 1024, 'plugin icon exceeds 64 KiB'
+              assert 0 < len(icon) <= 5 * 1024 * 1024, 'plugin icon exceeds the host 5 MiB limit'
               assert icon.startswith(b'\x89PNG\r\n\x1a\n'), 'plugin icon must be PNG'
               assert icon == pathlib.Path('icons/log2sql.png').read_bytes(), 'plugin icon changed during packaging'
-              assert not {'navigation', 'panels'} & set(manifest['contributes']), 'legacy top-menu/panels must remain absent'
+              assert 'panels' not in manifest['contributes'], 'legacy panels must remain absent'
+              assert manifest['contributes']['navigation'] == [
+                  {'id': 'workbench-tools', 'title': 'Log2SQL', 'page': 'workbench', 'location': 'tools', 'order': 0},
+              ], 'title-bar navigation must point at the workbench page through location tools'
               assert manifest['permissions'] == ['ai.tools', 'host.log', 'ui.pages', 'ui.html-panel'], 'unexpected permissions'
               pages = manifest['contributes']['pages']
               assert len(pages) == 1 and pages[0]['id'] == 'workbench' and set(pages[0]) == {'id', 'title', 'html'}, 'workbench page mismatch'
@@ -173,6 +176,8 @@ jobs:
               assert len(package.read('gonavi.plugin.json')) <= 256 * 1024, 'manifest exceeds 256 KiB'
               assert [command['id'] for command in manifest['contributes']['commands']] == ['convert', 'getSettings', 'saveSettings'], 'command set mismatch'
               assert set(manifest['permissionNotes']) == set(manifest['permissions']), 'permission notes mismatch'
+              assert all(0 < len(note.encode('utf-8')) <= 160 and not {'<', '>'} & set(note)
+                  for note in manifest['permissionNotes'].values()), 'permission note exceeds the host 160-byte limit'
               assert 'window' not in manifest, 'independent window must remain absent'
               assert not {name for name in names if name.endswith('.html')}, 'HTML belongs only in the inline page'
               assert 'default' not in manifest['backend'], 'backend.default must be absent'
@@ -194,13 +199,13 @@ jobs:
           PY
       - name: Validate directory and ZIP with the pinned host installer
         run: |
-          test "$(git -C build/host-validator-source rev-parse HEAD)" = "6c66942637ec573e34e564b94dd6296966c4095e"
+          test "$(git -C build/host-validator-source rev-parse HEAD)" = "5d4402903ce1f5635949c17a9341e4bf1e5a8d70"
           node tools/host-check.mjs "$ARCHIVE" --source build/host-validator-source --directory build/release/pkg
-          printf '%s\n' 'Host directory and ZIP installation and icon reads passed using Syngnat/GoNavi commit 6c66942637ec573e34e564b94dd6296966c4095e. This is not a marketplace admission check.' >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' 'Host directory and ZIP installation and icon reads passed using Syngnat/GoNavi commit 5d4402903ce1f5635949c17a9341e4bf1e5a8d70. This is not a marketplace admission check.' >> "$GITHUB_STEP_SUMMARY"
       - name: Upload the single ZIP for coordinator review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: gh-autumnnazi.log2sql-0.1.4-release-candidate
+          name: gh-autumnnazi.log2sql-0.1.5-release-candidate
           path: ${{ env.ARCHIVE }}
           if-no-files-found: error
           retention-days: 14

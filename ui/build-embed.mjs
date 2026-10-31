@@ -62,10 +62,13 @@ if (htmlBytes > limit) {
 console.log(`page html: ${htmlBytes} bytes / ${limit} limit`);
 
 const manifest = JSON.parse(readFileSync(templatePath, 'utf8'));
+// 标题栏入口只能来自 navigation：宿主不再按 pages/window 推断，漏声明就等于没有入口。
+const navigation = manifest.contributes.navigation;
 if (manifest.contributes.pages?.length !== 1 || manifest.contributes.pages[0].id !== 'workbench' ||
     manifest.contributes.pages[0].html?.source !== '__WORKBENCH_HTML__' ||
-    Object.hasOwn(manifest.contributes, 'panels') || Object.hasOwn(manifest.contributes, 'navigation')) {
-  throw new Error('清单必须仅声明 workbench HTML 页面，不声明 panels/navigation');
+    Object.hasOwn(manifest.contributes, 'panels') ||
+    navigation?.length !== 1 || navigation[0].page !== 'workbench' || navigation[0].location !== 'tools') {
+  throw new Error('清单必须声明 workbench HTML 页面，并以 contributes.navigation（location: tools）指向它，且不声明 panels');
 }
 manifest.contributes.pages[0].html.source = html;
 manifest.backend = { platforms: {} };

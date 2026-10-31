@@ -50,8 +50,8 @@ func run() (resultErr error) {
   if err != nil { return err }
   if status.Manifest.ID != inspected.Manifest.ID || status.Manifest.Version != inspected.Manifest.Version { return fmt.Errorf("installed package identity differs") }
   if iconPath == "" { return fmt.Errorf("package does not declare an icon") }
-  data, err := manager.ReadPackageFile(status.Manifest.ID, iconPath, 64*1024); if err != nil { return err }
-  if len(data) == 0 || len(data) > 64*1024 { return fmt.Errorf("invalid icon size") }
+  data, err := manager.ReadPackageFile(status.Manifest.ID, iconPath, 5<<20); if err != nil { return err }
+  if len(data) == 0 || len(data) > 5<<20 { return fmt.Errorf("invalid icon size") }
   config, err := png.DecodeConfig(bytes.NewReader(data)); if err != nil { return fmt.Errorf("invalid PNG icon: %w", err) }
   if config.Width < 1 || config.Height < 1 { return fmt.Errorf("empty PNG dimensions") }
   if _, err := png.Decode(bytes.NewReader(data)); err != nil { return fmt.Errorf("corrupt PNG icon: %w", err) }

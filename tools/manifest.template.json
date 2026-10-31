@@ -3,7 +3,7 @@
   "apiVersion": 1,
   "id": "gh-autumnnazi.log2sql",
   "name": "Log2SQL",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "minHostVersion": "1.2.0",
   "description": "粘贴 MyBatis / MyBatis-Plus 的 Preparing/Parameters DEBUG 日志，还原成可直接执行的 SQL；convert 命令同时作为 Agent 工具与 CLI 命令可用。",
   "author": "AutumnNazi",
@@ -18,7 +18,7 @@
   "permissionNotes": {
     "ai.tools": "把 convert 命令暴露为 Agent 工具：传入日志文本，返回回填后的 SQL，纯计算无副作用。",
     "host.log": "插件进入 running 状态时写一条诊断日志。",
-    "ui.pages": "声明主工作区 workbench 标签页；通过宿主安全 plugin.invoke 调用本插件声明的设置命令。",
+    "ui.pages": "声明 workbench 标签页，并用 contributes.navigation(location: tools) 挂成标题栏入口；设置调用走宿主 plugin.invoke。",
     "ui.html-panel": "在 workbench 标签页渲染内联 HTML 转换界面；不请求网络、宿主存储或数据库能力。"
   },
   "backend": {
@@ -30,6 +30,9 @@
   "contributes": {
     "pages": [
       { "id": "workbench", "title": "Log2SQL", "html": { "source": "__WORKBENCH_HTML__" } }
+    ],
+    "navigation": [
+      { "id": "workbench-tools", "title": "Log2SQL", "page": "workbench", "location": "tools", "order": 0 }
     ],
     "commands": [
       {

@@ -25,6 +25,9 @@ const val = (name, fallback) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 
+// 对齐宿主 internal/plugin/ai_provider.go 的 maxPackageIconBytes = 5 << 20（36260ba77 起 64 KiB → 5 MiB）。
+const maxPackageIconBytes = 5 * 1024 * 1024;
+
 const goos = val('--goos', process.platform === 'win32' ? 'windows' : process.platform);
 const goarch = val('--goarch', process.arch === 'x64' ? 'amd64' : process.arch);
 const pkgDir = resolve(root, val('--out', 'pkg/' + Date.now() + '-' + randomUUID()));
@@ -61,8 +64,15 @@ if (icon) {
     if (!existsSync(source)) throw new Error('missing package icon: ' + source);
     const stat = lstatSync(source);
     if (stat.isSymbolicLink() || (i === parts.length
-      ? !stat.isFile() || stat.nlink !== 1 || stat.size === 0 || stat.size > 64 * 1024
+      ? !stat.isFile() || stat.nlink !== 1 || stat.size === 0 || stat.size > maxPackageIconBytes
       : !stat.isDirectory())) throw new Error('invalid package icon: ' + source);
+  }
+}
+// 对齐宿主 internal/plugin/permission_notes.go：说明必须对应已声明权限，且 ≤160 字节、非空、禁 <> 与控制字符。
+for (const [key, note] of Object.entries(template.permissionNotes ?? {})) {
+  if (!template.permissions?.includes(key) || typeof note !== 'string' || note.trim() === '' ||
+      Buffer.byteLength(note, 'utf8') > 160 || /[<>\u0000-\u001f\u007f]/.test(note)) {
+    throw new Error('invalid permission note: ' + key);
   }
 }
 for (const file of licensePaths) {
