@@ -5,7 +5,7 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 
 - 插件 ID：`gh-autumnnazi.log2sql`
 - 权限：`ai.tools`（Agent 工具）、`host.log`（启动诊断）、`ui.pages`（工作区页面）、`ui.html-panel`（内联 HTML）；不申请网络、数据库或额外凭据权限
-- 当前版本：`0.1.6`（修复 `[级别] [IP] [时间] [线程] logger - [级别,行号] - ` 前缀的日志识别），仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0`–`v0.1.5` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
+- 当前版本：`0.1.6`（修复 `[级别] [IP] [时间] [线程] logger - [级别,行号] - ` 前缀的日志识别），已发布 <https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.6>；仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0`–`v0.1.5` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
 - 许可：Apache-2.0（完整正文见 `LICENSE`，SDK 归属与 Go 标准库许可见 `THIRD_PARTY_NOTICES`）
 
 ## 功能
@@ -173,6 +173,12 @@ gonavi plugin --root <插件根> enable gh-autumnnazi.log2sql
 - 后端 stdio smoke 仅验证初始化、诊断、转换、`auto/auto/mysql` 设置落盘与关闭，不验证页面 UI。
 - 未验证：标签页的宿主实际渲染、剪贴板行为、开关持久化交互与 AI 后方插件入口的原生全平台行为（宿主侧只验证到「安装成功 + 图标可回读为栅格 data URL」，未点开界面）；
   Agent 对话中的工具调用路径。本机测试不替代五个平台对应的原生 CI 测试。
+- `0.1.6` 已作为**最新稳定版**发布（<https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.6>）：
+  五个平台原生测试与 stdio smoke 全部通过，候选 ZIP 的结构、导航/图标/摘要一致性检查通过；
+  共享向量 74 例（含新增的方括号前缀用例）Go 与 JS 双端一致，`node --test` 143/143；
+  固定宿主源码 `5d4402903ce1f5635949c17a9341e4bf1e5a8d70` 的隔离安装与图标回读校验通过；CI run `41957917775` 结论为 success。
+  本次仅发布 GitHub Release，未登记插件市场，不宣称通过市场上架校验。
+  发布资产 SHA-256 `a7091ceb9034b694b83257ea1bd1e7b6e646669b67720f8864f531587ee9a205`（11,438,776 字节）；修复内容为方括号前缀日志（`[级别] [IP] [时间] [线程] logger - [级别,行号] -`）此前整行被丢弃的问题。
 - `0.1.5` 已发布（<https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.5>）：
   五个平台原生测试与 stdio smoke 全部通过，候选 ZIP 的结构、导航/图标/说明断言与五平台二进制摘要一致性检查通过；
   固定宿主源码 `5d4402903ce1f5635949c17a9341e4bf1e5a8d70` 的隔离安装与图标回读校验通过；CI run `41196602895` 结论为 success。
