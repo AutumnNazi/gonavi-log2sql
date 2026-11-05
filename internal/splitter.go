@@ -32,7 +32,7 @@ var (
 	tracePattern = regexp.MustCompile(`(?i)trace[_-]?id\s*[:=]\s*([0-9A-Za-z_-]+)`)
 	// 日志级别词：mapper 取级别词之后、消息标记之前的 token
 	levelPattern      = regexp.MustCompile(`\b(DEBUG|INFO|TRACE|WARN|ERROR)\b`)
-	loggerLinePattern = regexp.MustCompile(`^\s*(?:\[[^\]]+\]\s*)*(?:DEBUG|INFO|TRACE|WARN|ERROR)\b|^\s*(?:[A-Za-z_$][\w$]*\.)+[A-Za-z_$][\w$]*\s+-\s+`)
+	loggerLinePattern = regexp.MustCompile(`^\s*(?:\[[^\]]+\]\s*)*(?:DEBUG|INFO|TRACE|WARN|ERROR)\b|^\s*(?:\[[^\]]+\]\s*)*(?:[A-Za-z_$][\w$]*\.)+[A-Za-z_$][\w$]*\s+-\s+`)
 	totalPattern      = regexp.MustCompile(`Total:\s*(\d+)`)
 	arrowLinePattern  = regexp.MustCompile(`^\s*(?:==>|<==)`)
 	// 日志前缀中的方括号段（线程、级别、时间戳、IP 等都可能是方括号）
@@ -134,7 +134,7 @@ func extractMapper(line string) string {
 	tokens := strings.Fields(tail)
 	for len(tokens) > 0 {
 		last := tokens[len(tokens)-1]
-		if last == "==>" || last == "==" || (last != "" && strings.Trim(last, "-") == "") {
+		if last == "==>" || last == "==" || (strings.HasPrefix(last, "[") && strings.HasSuffix(last, "]")) || (last != "" && strings.Trim(last, "-") == "") {
 			tokens = tokens[:len(tokens)-1]
 			continue
 		}

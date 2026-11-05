@@ -790,6 +790,20 @@
           }
         ]
       }
+    },
+    {
+      "name": "bracketed-level-ip-and-code-marker-prefix",
+      "input": "[DEBUG] [192.168.2.176] [2026-11-05 09:19:53.649] [ecomEntreportConsumer-0-C-1] c.s.e.b.m.S.insert - [debug,137] - ==>  Preparing: INSERT INTO sys_config ( code, name, value, remark, create_time ) VALUES ( ?, ?, ?, ?, ? )\n[DEBUG] [192.168.2.176] [2026-11-05 09:19:53.650] [ecomEntreportConsumer-0-C-1] c.s.e.b.m.S.insert - [debug,137] - ==> Parameters: PlatformReportPeriodEndTime(String), PlatformReportPeriodEndTime(String), 2026-11-01(String), 网监同步(String), 2026-11-05 09:19:53.648(Timestamp)",
+      "expected": {
+        "statements": [
+          {
+            "sql": "INSERT INTO sys_config ( code, name, value, remark, create_time ) VALUES ( 'PlatformReportPeriodEndTime', 'PlatformReportPeriodEndTime', '2026-11-01', '网监同步', '2026-11-05 09:19:53.648' )",
+            "paramCount": 5,
+            "placeholderCount": 5,
+            "mapper": "c.s.e.b.m.S.insert"
+          }
+        ]
+      }
     }
   ]
 }

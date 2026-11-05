@@ -112,7 +112,7 @@ jobs:
         shell: bash
     env:
       PLATFORMS: windows/amd64,linux/amd64,linux/arm64,darwin/amd64,darwin/arm64
-      ARCHIVE: build/release/gh-autumnnazi.log2sql-0.1.5.zip
+      ARCHIVE: build/release/gh-autumnnazi.log2sql-0.1.6.zip
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -154,7 +154,7 @@ jobs:
               assert 'gonavi.plugin.json' in names and 'LICENSE' in names, 'missing root release files'
               assert package.testzip() is None, 'corrupt ZIP entry'
               manifest = json.loads(package.read('gonavi.plugin.json').decode('utf-8'))
-              assert manifest['id'] == 'gh-autumnnazi.log2sql' and manifest['version'] == '0.1.5'
+              assert manifest['id'] == 'gh-autumnnazi.log2sql' and manifest['version'] == '0.1.6'
               assert manifest['minHostVersion'] == '1.2.0', 'minimum host version mismatch'
               assert manifest['icon'] == 'icons/log2sql.png', 'plugin icon path mismatch'
               icon = package.read(manifest['icon'])
@@ -205,7 +205,7 @@ jobs:
       - name: Upload the single ZIP for coordinator review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: gh-autumnnazi.log2sql-0.1.5-release-candidate
+          name: gh-autumnnazi.log2sql-0.1.6-release-candidate
           path: ${{ env.ARCHIVE }}
           if-no-files-found: error
           retention-days: 14

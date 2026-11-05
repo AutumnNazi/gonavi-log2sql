@@ -5,7 +5,7 @@
 
 // ——— 日志切分 ———
 
-const logPrefixPattern = /^\s*\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}|^\s*(?:\[[^\]]+\]\s*)*(?:DEBUG|INFO|TRACE|WARN|ERROR)\b|^\s*(?:[A-Za-z_$][\w$]*\.)+[A-Za-z_$][\w$]*\s+-\s+/;
+const logPrefixPattern = /^\s*\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}|^\s*(?:\[[^\]]+\]\s*)*(?:DEBUG|INFO|TRACE|WARN|ERROR)\b|^\s*(?:\[[^\]]+\]\s*)*(?:[A-Za-z_$][\w$]*\.)+[A-Za-z_$][\w$]*\s+-\s+/;
 
 // messageKind 返回该行的 MyBatis 消息类型与标记起点，是切分与续行判定的唯一依据。
 // 消息边界规则：只认真实日志前缀后**第一个**箭头（==> / <==）的正文，或行首（手工粘贴
@@ -65,7 +65,7 @@ function extractMapper(line) {
   const tokens = tail.trim().split(/\s+/).filter(Boolean);
   while (tokens.length > 0) {
     const last = tokens[tokens.length - 1];
-    if (last === '==>' || last === '==' || (last.split('-').filter(Boolean).length === 0 && last.length > 0)) {
+    if (last === '==>' || last === '==' || /^\[[^\]]*\]$/.test(last) || (last.split('-').filter(Boolean).length === 0 && last.length > 0)) {
       tokens.pop();
       continue;
     }

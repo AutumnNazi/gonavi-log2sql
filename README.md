@@ -5,12 +5,12 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 
 - 插件 ID：`gh-autumnnazi.log2sql`
 - 权限：`ai.tools`（Agent 工具）、`host.log`（启动诊断）、`ui.pages`（工作区页面）、`ui.html-panel`（内联 HTML）；不申请网络、数据库或额外凭据权限
-- 当前版本：`0.1.5`（补回标题栏入口、对齐宿主 `5d4402903` 契约），已发布 <https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.5>；仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0`–`v0.1.4` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
+- 当前版本：`0.1.6`（修复 `[级别] [IP] [时间] [线程] logger - [级别,行号] - ` 前缀的日志识别），仅工作区标签页，不提供独立窗口；已公开的 `v0.1.0`–`v0.1.5` 资产不覆盖；公开仓库：<https://github.com/AutumnNazi/gonavi-log2sql>
 - 许可：Apache-2.0（完整正文见 `LICENSE`，SDK 归属与 Go 标准库许可见 `THIRD_PARTY_NOTICES`）
 
 ## 功能
 
-- 粘贴整行日志（时间戳/线程/级别/logger 前缀）或仅 `Preparing:` / `Parameters:` 部分，一次可贴多条语句
+- 粘贴整行日志（时间戳/线程/级别/logger 前缀，含 `[DEBUG] [IP] [时间] [线程] logger - [级别,行号] - ` 这种方括号形态）或仅 `Preparing:` / `Parameters:` 部分，一次可贴多条语句
 - 参数回填 `?` 占位符：数字/布尔裸值，字符串/日期时间加单引号（内部 `'` 转义为 `''`），裸 `null` 输出 `NULL`（`null(String)` 是字面字符串，保留为 `'null'`）
 - 兼容短类名 `(String)` 与全类名 `(java.lang.String)`；参数值含逗号、引号、括号可正确解析；值内的空白原样保留（只去掉参数分隔符自身的一个空格）
 - SQL 字符串字面量、双引号/反引号标识符与注释里的 `?` 不参与回填；消息标记只在行首或真实日志前缀后的第一个箭头（`==>`/`<==`）之后识别，参数值里出现 `==> Preparing:` 之类的字样不会被误判
@@ -40,7 +40,7 @@ GoNavi 插件：把 MyBatis / MyBatis-Plus 的 `Preparing:` / `Parameters:` DEBU
 字节上限自 `36260ba77` 起由 64 KiB 放宽到 5 MiB，读取上限同步提到 8 MiB（`internal/plugin/manager_assets.go`）。
 缺失、超限或浏览器解码失败时回退宿主默认图标。转换、设置和页面权限保持不变。
 
-`0.1.5` 本次仅发布 GitHub Release，不登记插件市场；本次补回被 `0.1.2` 删掉的 `contributes.navigation`（顶栏入口恢复），并把图标上限（5 MiB）、说明长度（160 字节）与校验基线对齐宿主现行契约。发布候选须通过五个平台原生测试、安装包结构与摘要检查，以及固定宿主源码 `5d4402903ce1f5635949c17a9341e4bf1e5a8d70`（2026-10-31 的 dev，含图标上限放宽与单一图标校验实现）的真实目录/ZIP 隔离安装和图标读取校验。此宿主校验不等同于市场上架校验；独立市场契约未同步顶层 `icon` 时，不宣称通过市场上架校验。
+`0.1.6` 本次仅发布 GitHub Release，不登记插件市场；本次修复 `[级别] [IP] [时间] [线程] logger - [级别,行号] - ` 前缀的日志识别（这类行此前整行被当正文丢弃，转换结果为 0 条语句），并补共享向量 `bracketed-level-ip-and-code-marker-prefix` 锁住双端行为。发布候选须通过五个平台原生测试、安装包结构与摘要检查，以及固定宿主源码 `5d4402903ce1f5635949c17a9341e4bf1e5a8d70`（2026-10-31 的 dev，含图标上限放宽与单一图标校验实现）的真实目录/ZIP 隔离安装和图标读取校验。此宿主校验不等同于市场上架校验；独立市场契约未同步顶层 `icon` 时，不宣称通过市场上架校验。
 
 ## GoNavi 兼容版本与入口
 
@@ -173,7 +173,7 @@ gonavi plugin --root <插件根> enable gh-autumnnazi.log2sql
 - 后端 stdio smoke 仅验证初始化、诊断、转换、`auto/auto/mysql` 设置落盘与关闭，不验证页面 UI。
 - 未验证：标签页的宿主实际渲染、剪贴板行为、开关持久化交互与 AI 后方插件入口的原生全平台行为（宿主侧只验证到「安装成功 + 图标可回读为栅格 data URL」，未点开界面）；
   Agent 对话中的工具调用路径。本机测试不替代五个平台对应的原生 CI 测试。
-- `0.1.5` 已作为**最新稳定版**发布（<https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.5>）：
+- `0.1.5` 已发布（<https://github.com/AutumnNazi/gonavi-log2sql/releases/tag/v0.1.5>）：
   五个平台原生测试与 stdio smoke 全部通过，候选 ZIP 的结构、导航/图标/说明断言与五平台二进制摘要一致性检查通过；
   固定宿主源码 `5d4402903ce1f5635949c17a9341e4bf1e5a8d70` 的隔离安装与图标回读校验通过；CI run `41196602895` 结论为 success。
   本次仅发布 GitHub Release，未登记插件市场，不宣称通过市场上架校验。
